@@ -9,7 +9,8 @@ process STAR_FUSION {
 
     output:
     tuple val(meta), path("star-fusion.fusion_predictions*.tsv"), emit: star_outputs
-    path("FusionInspector-validate/*"), optional: true, emit: fusion_inspector
+    tuple val(meta), path("FusionInspector-validate/*"), optional: true, emit: fusion_inspector
+    tuple val(meta), path("FusionInspector-validate/finspector.FusionInspector.fusions.abridged.tsv.annotated.coding_effect"), optional: true, emit: fusion_summary
     script:
     def TEMPDIR = "tmp"
     """

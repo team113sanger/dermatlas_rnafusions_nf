@@ -24,4 +24,17 @@ workflow {
         combined_ch,
         ctat_genome_lib
     )
+
+    STAR_FUSION.out.fusion_summary
+    .map { meta, result_file -> 
+        // Read the content of the result file
+        def content = result_file.text
+        // Add sample_id as first column to each line
+        def modified_content = content.readLines().collect { line ->
+            "${meta.patient_id}\t${line}"
+        }.join("\n")
+        return modified_content
+    }
+    .collectFile(name: 'collated_results.tsv', keepHeader: true newLine: true)
+
 }
