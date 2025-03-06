@@ -30,10 +30,17 @@ workflow {
         // Read the content of the result file
         def content = result_file.text
         // Add sample_id as first column to each line
-        def modified_content = content.readLines().collect { line ->
-            "${meta.patient_id}\t${line}"
-        }.join("\n")
-        return modified_content
+        def modified_content = content.readLines().withIndex().collect { line, i ->
+        if (i == 0) {
+        // This is the header line, just add sample_name
+            "sample_name\t${line}"
+        }   else {
+        // Add patient_id to all non-header lines
+        "${meta.patient_id}\t${line}"
+    }
+    }.join("\n")
+return modified_content
+
     }
     .collectFile(name: 'collated_results.tsv', keepHeader: true newLine: true)
 
