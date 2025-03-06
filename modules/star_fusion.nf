@@ -1,7 +1,4 @@
 process STAR_FUSION {
-    module "star-fusion/1.10.1"
-    cpus 16
-    memory "60G"
     publishDir path: "${params.outdir}/${meta.patient_id}", 
                mode: "${params.publish_dir_mode}",
                overwrite: "true"
