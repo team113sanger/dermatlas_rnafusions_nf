@@ -1,0 +1,20 @@
+nextflow_pipeline {
+
+    name "Test Workflow main.nf"
+    script "main.nf"
+
+    test("Should run without failures") {
+
+        when {
+            params {
+                load("$baseDir/tests/testdata/test_params.json")
+            }
+        }
+
+        then {
+            assert workflow.success
+        }
+
+    }
+
+}

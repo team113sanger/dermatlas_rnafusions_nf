@@ -1,4 +1,5 @@
 process STAR_FUSION {
+    container "quay.io/biocontainers/star-fusion:1.11.1--hdfd78af_0"
     publishDir path: "${params.outdir}/${meta.patient_id}", 
                mode: "${params.publish_dir_mode}",
                overwrite: "true"
@@ -25,5 +26,11 @@ process STAR_FUSION {
     --FusionInspector validate \
     --examine_coding_effect \
     --denovo_reconstruct
+    """
+    stub: 
+    """
+    echo stub > star-fusion.fusion_predictions_example.tsv
+    mkdir -p FusionInspector-validate
+    echo stub > FusionInspector-validate/finspector.FusionInspector.fusions.abridged.tsv.annotated.coding_effect
     """
 }
