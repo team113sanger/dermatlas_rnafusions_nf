@@ -1,5 +1,5 @@
 process STAR_FUSION {
-    container "quay.io/biocontainers/star-fusion:1.11.1--hdfd78af_0"
+    container "docker.io/trinityctat/starfusion:1.10.1"
     publishDir path: "${params.outdir}/${meta.patient_id}", 
                mode: "${params.publish_dir_mode}",
                overwrite: "true"
