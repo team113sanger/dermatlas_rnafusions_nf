@@ -4,7 +4,9 @@ nextflow.enable.dsl = 2
 include { STAR_FUSION } from "./modules/star_fusion.nf"
 workflow {
     
+
     ctat_genome_lib = file(params.ctat_lib)
+    sample_list = file(params.sample_list)
     
     reads_ch = Channel.fromFilePairs(params.fastq_path, flat: true)
     .map{ meta,read1,read2 -> tuple(["sanger_id": meta], read1, read2)}
@@ -24,23 +26,5 @@ workflow {
         ctat_genome_lib
     )
 
-//     STAR_FUSION.out.fusion_summary
-//     .map { meta, result_file -> 
-//         // Read the content of the result file
-//         def content = result_file.text
-//         // Add sample_id as first column to each line
-//         def modified_content = content.readLines().withIndex().collect { line, i ->
-//         if (i == 0) {
-//         // This is the header line, just add sample_name
-//             "sample_name\t${line}"
-//         }   else {
-//         // Add patient_id to all non-header lines
-//         "${meta.patient_id}\t${line}"
-//     }
-//     }.join("\n")
-// return modified_content
-
-//     }
-//     .collectFile(name: 'collated_results.tsv', keepHeader: true newLine: true)
-
+    STAR_FUSION.out.fusion_summary.fusion_inspector.collect()
 }

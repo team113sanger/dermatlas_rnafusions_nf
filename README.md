@@ -18,12 +18,15 @@ In brief, the pipeline takes a set fastq files from a Dermatlas cohort and
 
 ## Inputs 
 
-Inputs 
 
 ### Cohort-dependent variables
-
+- `fastq_path`: path to a top level directory containing a set of paired fastq files. The pipeline will search for all fastq files within this directory and subdirectories.
+- `sample_metadata`: path to a metadata file containing sample information. The metadata file should be a tab-separated file with the following columns:
+- `sample`: unique Sanger identifier for each sample
+- `sample_supplier_name`: Sample identifier provided for a tumour
 ### Cohort-independent variables
 
+`ctat_lib` : path to a STAR-Fusion Trintity Cancer Transcriptome Analysis Toolkit (CTAT) genome build directory (a required input for STAR-Fusion)
 
 Default reference file values supplied within the `nextflow.config` file can be overided by adding them to the params `.json` file. An example complete params file `tests/test_data/test_params.json` is supplied within this repo for demonstation.
 

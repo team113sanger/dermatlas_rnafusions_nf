@@ -9,17 +9,17 @@ process STAR_FUSION {
     path(CTAT_GENOME_LIB)
 
     output:
-    tuple val(meta), path("star-fusion.fusion_predictions*.tsv"), emit: star_outputs
-    tuple val(meta), path("FusionInspector-validate/*"), optional: true, emit: fusion_inspector
-    tuple val(meta), path("FusionInspector-validate/finspector.FusionInspector.fusions.abridged.tsv.annotated.coding_effect"), optional: true, emit: fusion_summary
+    tuple val(meta), path("${meta.patient_id}/star-fusion.fusion_predictions*.tsv"), emit: star_outputs
+    tuple val(meta), path("${meta.patient_id}/FusionInspector-validate/*"), optional: true, emit: fusion_inspector
     script:
     def TEMPDIR = "tmp"
     """
+    mkdir ${meta.patient_id}
     STAR-Fusion \
     --left_fq $read1 \
     --right_fq $read2 \
     --genome_lib_dir $CTAT_GENOME_LIB \
-    -O . \
+    -O ${meta.patient_id} \
     --verbose_level 2 \
     --tmpdir $TEMPDIR \
     --CPU $task.cpus \
@@ -29,8 +29,8 @@ process STAR_FUSION {
     """
     stub: 
     """
-    echo stub > star-fusion.fusion_predictions_example.tsv
-    mkdir -p FusionInspector-validate
-    echo stub > FusionInspector-validate/finspector.FusionInspector.fusions.abridged.tsv.annotated.coding_effect
+    mkdir -p ${meta.patient_id}/FusionInspector-validate
+    echo stub > ${meta.patient_id}/star-fusion.fusion_predictions_example.tsv
+    echo stub > ${meta.patient_id}/FusionInspector-validate/finspector.FusionInspector.fusions.abridged.tsv.annotated.coding_effect
     """
 }
