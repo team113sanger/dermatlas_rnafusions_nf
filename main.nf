@@ -6,7 +6,7 @@ workflow {
     
 
     ctat_genome_lib = file(params.ctat_lib)
-    sample_list = file(params.sample_list)
+    // sample_list = file(params.sample_list)
     
     reads_ch = Channel.fromFilePairs(params.fastq_path, flat: true)
     .map{ meta,read1,read2 -> tuple(["sanger_id": meta], read1, read2)}
@@ -25,6 +25,11 @@ workflow {
         combined_ch,
         ctat_genome_lib
     )
-
-    STAR_FUSION.out.fusion_summary.fusion_inspector.collect()
+    fusion_ins_ch = STAR_FUSION.out.fusion_inspector
+    .map { meta, fusion_inspector ->
+        fusion_inspector}.collect()
+    starf_ch = STAR_FUSION.out.starf_outputs
+    .map { meta, fusion_inspector ->
+        fusion_inspector}.collect()
+    starf_ch.view()
 }

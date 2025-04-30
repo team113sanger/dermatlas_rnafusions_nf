@@ -9,7 +9,7 @@ process STAR_FUSION {
     path(CTAT_GENOME_LIB)
 
     output:
-    tuple val(meta), path("${meta.patient_id}/star-fusion.fusion_predictions*.tsv"), emit: star_outputs
+    tuple val(meta), path("${meta.patient_id}/star-fusion.fusion_predictions*.tsv"), emit: starf_outputs
     tuple val(meta), path("${meta.patient_id}/FusionInspector-validate/*"), optional: true, emit: fusion_inspector
     script:
     def TEMPDIR = "tmp"
