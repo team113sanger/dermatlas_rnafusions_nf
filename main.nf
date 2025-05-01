@@ -2,11 +2,12 @@
 nextflow.enable.dsl = 2
 
 include { STAR_FUSION } from "./modules/star_fusion.nf"
+include { FILTER_AND_MERGE_SAMPLES} from "./modules/post_process.nf"
+include { SUMMARY_PLOTS_AND_TABLES } from "./modules/post_process.nf"
 workflow {
     
-
     ctat_genome_lib = file(params.ctat_lib)
-    // sample_list = file(params.sample_list)
+    sample_list = file(params.sample_list)
     
     reads_ch = Channel.fromFilePairs(params.fastq_path, flat: true)
     .map{ meta,read1,read2 -> tuple(["sanger_id": meta], read1, read2)}
@@ -28,8 +29,22 @@ workflow {
     fusion_ins_ch = STAR_FUSION.out.fusion_inspector
     .map { meta, fusion_inspector ->
         fusion_inspector}.collect()
+    .map {fusion_inspector ->
+        tuple(["study_id": params.study_id], fusion_inspector)}
+    
     starf_ch = STAR_FUSION.out.starf_outputs
-    .map { meta, fusion_inspector ->
-        fusion_inspector}.collect()
-    starf_ch.view()
+    .map { meta, starf_res ->
+        starf_res}.collect()
+    .map {starf_res ->
+        tuple(["study_id": params.study_id], starf_res)}
+    
+    FILTER_AND_MERGE_SAMPLES(
+        starf_ch,
+        fusion_ins_ch,
+        sample_list
+        
+    )
+    SUMMARY_PLOTS_AND_TABLES(FILTER_AND_MERGE_SAMPLES.out.merged_starf)
+
+
 }
