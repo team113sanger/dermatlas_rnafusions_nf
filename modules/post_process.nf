@@ -5,7 +5,7 @@ process FILTER_AND_MERGE_SAMPLES {
                overwrite: "true"
     input:
         tuple val(meta), path(STAR_outputs)
-        tuple val(meta), path(FusionInspector_outputs)
+        tuple val(meta_Fins), path(FusionInspector_outputs)
         path(input_samples)
 
     output: 
@@ -13,6 +13,27 @@ process FILTER_AND_MERGE_SAMPLES {
     
     script:
     """
+    # Recreate expected directory structure for R script
+    mkdir -p analysis/star-fusion
+    
+    # Organize FusionInspector files by sample
+    for item in ${FusionInspector_outputs}; do
+        if [[ \$item == *.tsv.annotated.coding_effect ]]; then
+            sample_dir=analysis/star-fusion/\${item%%_*}/FusionInspector-validate
+            mkdir -p \$sample_dir
+            cp \$item \$sample_dir/finspector.FusionInspector.fusions.abridged.tsv.annotated.coding_effect
+        fi
+    done
+    
+    # Organize STAR-Fusion files by sample  
+    for item in ${STAR_outputs}; do
+        if [[ \$item == *.coding_effect.tsv ]]; then
+            sample_dir=analysis/star-fusion/\${item%%_*}
+            mkdir -p \$sample_dir
+            cp \$item \$sample_dir/star-fusion.fusion_predictions.abridged.coding_effect.tsv
+        fi
+    done
+    
     Rscript /opt/repo/scripts/star_fusion_results_merge_from_list.R \
     --study_id "${meta.study_id}" \
     --input_samples $input_samples \
@@ -41,7 +62,7 @@ process SUMMARY_PLOTS_AND_TABLES {
     script:
         """
         Rscript /opt/repo/scripts/cohort_fusion_plotter_and_filter.R \
-        --study_id "${meta.study_id} \
+        --study_id "${meta.study_id}" \
         --table $table \
         --outdir .
         """

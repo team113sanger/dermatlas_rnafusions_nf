@@ -26,17 +26,26 @@ workflow {
         combined_ch,
         ctat_genome_lib
     )
+
+
     fusion_ins_ch = STAR_FUSION.out.fusion_inspector
     .map { meta, fusion_inspector ->
-        fusion_inspector}.collect()
-    .map {fusion_inspector ->
-        tuple(["study_id": params.study_id], fusion_inspector)}
+        tuple(meta.patient_id, fusion_inspector)
+    }
+    .collect()
+    .map { collected ->
+        tuple(["study_id": params.study_id], collected)
+    }
+
     
     starf_ch = STAR_FUSION.out.starf_outputs
     .map { meta, starf_res ->
-        starf_res}.collect()
-    .map {starf_res ->
-        tuple(["study_id": params.study_id], starf_res)}
+        tuple(meta.patient_id, starf_res)
+    }
+    .collect()
+    .map { collected ->
+        tuple(["study_id": params.study_id], collected)
+    }
     
     FILTER_AND_MERGE_SAMPLES(
         starf_ch,
