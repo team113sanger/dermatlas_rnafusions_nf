@@ -4,8 +4,13 @@ process FILTER_AND_MERGE_SAMPLES {
                mode: "${params.publish_dir_mode}",
                overwrite: "true"
     input:
-        tuple val(meta), path(STAR_outputs)
-        tuple val(meta_Fins), path(FusionInspector_outputs)
+        tuple val(meta), path(STAR_outputs,  stageAs: { file -> 
+        def sampleId = file.parent.name
+        return "${sampleId}/${file.name}"})
+        tuple val(meta_Fins), path(FusionInspector_outputs, tageAs: { file ->
+        def sampleId = file.parent.parent.name  // Go up two levels since files are in subdirectories
+        return "${sampleId}/${file.parent.name}/${file.name}"
+        })
         path(input_samples)
 
     output: 
@@ -14,25 +19,6 @@ process FILTER_AND_MERGE_SAMPLES {
     script:
     """
     # Recreate expected directory structure for R script
-    mkdir -p analysis/star-fusion
-    
-    # Organize FusionInspector files by sample
-    for item in ${FusionInspector_outputs}; do
-        if [[ \$item == *.tsv.annotated.coding_effect ]]; then
-            sample_dir=analysis/star-fusion/\${item%%_*}/FusionInspector-validate
-            mkdir -p \$sample_dir
-            cp \$item \$sample_dir/finspector.FusionInspector.fusions.abridged.tsv.annotated.coding_effect
-        fi
-    done
-    
-    # Organize STAR-Fusion files by sample  
-    for item in ${STAR_outputs}; do
-        if [[ \$item == *.coding_effect.tsv ]]; then
-            sample_dir=analysis/star-fusion/\${item%%_*}
-            mkdir -p \$sample_dir
-            cp \$item \$sample_dir/star-fusion.fusion_predictions.abridged.coding_effect.tsv
-        fi
-    done
     
     Rscript /opt/repo/scripts/star_fusion_results_merge_from_list.R \
     --study_id "${meta.study_id}" \
