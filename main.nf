@@ -36,7 +36,6 @@ workflow {
     .map { collected ->
         tuple(["study_id": params.study_id], collected)
     }
-    fusion_ins_ch.view()
     
     starf_ch = STAR_FUSION.out.starf_outputs
     .map { meta, starf_res ->
@@ -46,7 +45,6 @@ workflow {
     .map { collected ->
         tuple(["study_id": params.study_id], collected)
     }
-    starf_ch.view()
 
     FILTER_AND_MERGE_SAMPLES(
         starf_ch,
