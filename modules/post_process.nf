@@ -4,8 +4,8 @@ process FILTER_AND_MERGE_SAMPLES {
                mode: "${params.publish_dir_mode}",
                overwrite: "true"
     input:
-        tuple val(meta), path(STAR_outputs, stageAs: 'star_sample_?/*')
-        tuple val(meta_Fins), path(FusionInspector_outputs, stageAs: 'fusion_sample_?/*/*')
+        tuple val(meta), path(STAR_outputs, stageAs: '?/*')
+        tuple val(meta_Fins), path(FusionInspector_outputs, stageAs: '?/*/*')
         path(input_samples)
 
     output: 
