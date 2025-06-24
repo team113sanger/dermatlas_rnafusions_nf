@@ -7,7 +7,7 @@ process FILTER_AND_MERGE_SAMPLES {
         tuple val(meta), path(STAR_outputs,  stageAs: { file -> 
         def sampleId = file.parent.name
         return "${sampleId}/${file.name}"})
-        tuple val(meta_Fins), path(FusionInspector_outputs, tageAs: { file ->
+        tuple val(meta_Fins), path(FusionInspector_outputs, stageAs: { file ->
         def sampleId = file.parent.parent.name  // Go up two levels since files are in subdirectories
         return "${sampleId}/${file.parent.name}/${file.name}"
         })
