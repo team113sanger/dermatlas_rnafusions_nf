@@ -6,8 +6,8 @@ include { FILTER_AND_MERGE_SAMPLES} from "./modules/post_process.nf"
 include { SUMMARY_PLOTS_AND_TABLES } from "./modules/post_process.nf"
 workflow {
     
-    ctat_genome_lib = file(params.ctat_lib)
-    sample_list = file(params.sample_list)
+    ctat_genome_lib = file(params.ctat_lib, checkIfExists: true)
+    sample_list = file(params.sample_list, checkIfExists: true)
     
     reads_ch = Channel.fromFilePairs(params.fastq_path, flat: true)
     .map{ meta,read1,read2 -> tuple(["sanger_id": meta], read1, read2)}
