@@ -4,13 +4,8 @@ process FILTER_AND_MERGE_SAMPLES {
                mode: "${params.publish_dir_mode}",
                overwrite: "true"
     input:
-        tuple val(meta), path(STAR_outputs,  stageAs: { file -> 
-        def sampleId = file.parent.name
-        return "${sampleId}/${file.name}"})
-        tuple val(meta_Fins), path(FusionInspector_outputs, stageAs: { file ->
-        def sampleId = file.parent.parent.name  // Go up two levels since files are in subdirectories
-        return "${sampleId}/${file.parent.name}/${file.name}"
-        })
+        tuple val(meta), path(STAR_outputs, stageAs: { it.parent.name + "/" + it.name })
+        tuple val(meta_Fins), path(FusionInspector_outputs, stageAs: { it.parent.parent.name + "/" + it.parent.name + "/" + it.name })
         path(input_samples)
 
     output: 
