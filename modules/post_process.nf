@@ -7,8 +7,6 @@ process FILTER_AND_MERGE_SAMPLES {
         tuple val(meta), path(STAR_outputs, stageAs: "analysis/star_fusion/${STAR_outputs.name}")
         tuple val(meta_Fins), path(FusionInspector_outputs, stageAs: "analysis/star_fusion/FusionInspector")
         path(input_samples)
-')
-        path(input_samples)
 
     output: 
         tuple val(meta), path("*_merged_star-fusion.finspector.abridged.annotated.coding_effect.tsv"), emit: merged_starf
