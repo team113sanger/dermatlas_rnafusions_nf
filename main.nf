@@ -4,7 +4,7 @@ nextflow.enable.dsl = 2
 include { STAR_FUSION } from "./modules/star_fusion.nf"
 include { FILTER_AND_MERGE_SAMPLES; SUMMARY_PLOTS_AND_TABLES} from "./modules/post_process.nf"
 
-workflow {
+workflow FUSION_ANALYSIS{
     
     ctat_genome_lib = file(params.ctat_lib, checkIfExists: true)
     sample_list = file(params.sample_list, checkIfExists: true)
@@ -44,4 +44,8 @@ workflow {
     SUMMARY_PLOTS_AND_TABLES(FILTER_AND_MERGE_SAMPLES.out.merged_starf)
 
 
+}
+
+workflow {
+    FUSION_ANALYSIS()
 }
