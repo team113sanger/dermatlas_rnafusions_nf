@@ -32,9 +32,12 @@ process STAR_FUSION {
     stub: 
     """
     mkdir -p ${meta.patient_id}/FusionInspector-validate
+    echo stub > ${meta.patient_id}/star-fusion.fusion_predictions.abridged.tsv
     echo stub > ${meta.patient_id}/star-fusion.fusion_predictions_example.tsv
+    echo stub > ${meta.patient_id}/star-fusion.fusion_predictions.tsv
     if [ "${meta.patient_id}" == "PD1001" ]; then
         echo stub > ${meta.patient_id}/FusionInspector-validate/finspector.FusionInspector.fusions.abridged.tsv.annotated.coding_effect
+        echo stub > ${meta.patient_id}/FusionInspector-validate/finspector.spanning_reads.bam.bed,
     fi
     """
 }

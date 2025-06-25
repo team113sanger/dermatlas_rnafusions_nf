@@ -12,15 +12,16 @@ process FILTER_AND_MERGE_SAMPLES {
     
     script:
     def sample_setup = star_outputs.collect { sample ->
-        def finspector_link = sample.finspector_files ? 
-        "ln -sf ${sample.finspector_files} analysis/star_fusion/${sample.sample_id}/FusionInspector-validate" : 
+        def finspector_links = sample.finspector_files ? 
+        sample.finspector_files.collect { file -> "ln -sf ${file} analysis/star_fusion/${sample.sample_id}/FusionInspector-validate" }.join('\n    ') : 
         ""
-    """
+        def star_links = sample.star_files.collect { file -> "ln -sf ${file} analysis/star_fusion/${sample.sample_id}/" }.join('\n    ')
+        return """
     mkdir -p analysis/star_fusion/${sample.sample_id}/FusionInspector-validate
-    ln -sf ${sample.star_files} analysis/star_fusion/${sample.sample_id}/
-    ${finspector_link}
+    ${star_links}
+    ${finspector_links}
     """
-    }.join('\n    ')
+    }.join('\n')
     
     """
     # Recreate expected directory structure for R script
@@ -37,15 +38,16 @@ process FILTER_AND_MERGE_SAMPLES {
     """
     stub: 
     def sample_setup = star_outputs.collect { sample ->
-        def finspector_link = sample.finspector_files ? 
-        "ln -sf ${sample.finspector_files} analysis/star_fusion/${sample.sample_id}/FusionInspector-validate" : 
+        def finspector_links = sample.finspector_files ? 
+        sample.finspector_files.collect { file -> "ln -sf ${file} analysis/star_fusion/${sample.sample_id}/FusionInspector-validate" }.join('\n    ') : 
         ""
-    """
+        def star_links = sample.star_files.collect { file -> "ln -sf ${file} analysis/star_fusion/${sample.sample_id}/" }.join('\n    ')
+        return """
     mkdir -p analysis/star_fusion/${sample.sample_id}/FusionInspector-validate
-    ln -sf ${sample.star_files} analysis/star_fusion/${sample.sample_id}/
-    ${finspector_link}
+    ${star_links}
+    ${finspector_links}
     """
-    }.join('\n    ')
+    }.join('\n')
     """
     ${sample_setup}
     echo stub > "${meta.study_id}_merged_star-fusion.finspector.abridged.annotated.coding_effect.tsv"
