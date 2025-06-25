@@ -37,7 +37,7 @@ workflow FUSION_ANALYSIS{
     }
 
     FILTER_AND_MERGE_SAMPLES(
-        fusion_ins_ch,
+        merge_ch,
         sample_list
         
     )
