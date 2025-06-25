@@ -27,7 +27,8 @@ workflow FUSION_ANALYSIS{
         ctat_genome_lib
     )
 
-    merge_ch = STAR_FUSION.out.all_outs
+    merge_ch = STAR_FUSION.out.star_fusion
+    .join(STAR_FUSION.out.fusion_inspector, by: 0, remainder: true)
     .map { meta, starf_fusion, finspector ->
         ["sample_id": meta.patient_id, "star_files": starf_fusion, "finspector_files": finspector]
     }

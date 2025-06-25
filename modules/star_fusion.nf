@@ -9,7 +9,9 @@ process STAR_FUSION {
     path(CTAT_GENOME_LIB)
 
     output:
-    tuple val(meta), path("${meta.patient_id}/star-fusion.fusion_predictions*.tsv"), path("${meta.patient_id}/FusionInspector-validate/finspector.FusionInspector.fusions.abridged.*", optional: true), emit: all_outs
+    tuple val(meta), path("${meta.patient_id}/star-fusion.fusion_predictions*.tsv"), emit: star_fusion
+    tuple val(meta), path("${meta.patient_id}/FusionInspector-validate/*"), optional: true, emit: fusion_inspector
+
     
     script:
     def TEMPDIR = "tmp"
@@ -31,6 +33,8 @@ process STAR_FUSION {
     """
     mkdir -p ${meta.patient_id}/FusionInspector-validate
     echo stub > ${meta.patient_id}/star-fusion.fusion_predictions_example.tsv
-    echo stub > ${meta.patient_id}/FusionInspector-validate/finspector.FusionInspector.fusions.abridged.tsv.annotated.coding_effect
+    if [ "${meta.patient_id}" == "PD1001" ]; then
+        echo stub > ${meta.patient_id}/FusionInspector-validate/finspector.FusionInspector.fusions.abridged.tsv.annotated.coding_effect
+    fi
     """
 }
