@@ -1,7 +1,7 @@
 {
-    "fastq_path": "/lustre/scratch124/nf-test/rnafusions/**_{1,2}.fastq.gz",
-    "sample_metadata":"/lustre/scratch124/nf-test/rnafusions/samples_noduplicates.tsv",
-    "ctat_lib": "/lustre/scratch124/nf-test/rnafusions/ctat_genome_lib_build_dir", 
+    "fastq_path": "${baseDir}/tests/testdata/**_R{1,2}.fastq.gz",
+    "sample_metadata":"${baseDir}/tests/testdata/metadata.tsv",
+    "ctat_lib": "${baseDir}/tests", 
     "sample_list": "${baseDir}/tests/testdata/filter_samples.tsv",
     "study_id": "0001"
 }

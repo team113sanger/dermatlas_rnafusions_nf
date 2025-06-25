@@ -35,8 +35,6 @@ workflow {
     .map { file_list ->
         tuple(["study_id": params.study_id], file_list)
     }
-    fusion_ins_ch.view()
-    
 
     FILTER_AND_MERGE_SAMPLES(
         fusion_ins_ch,

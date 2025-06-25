@@ -13,9 +13,9 @@ process FILTER_AND_MERGE_SAMPLES {
     script:
     def sample_setup = star_outputs.collect { sample ->
         """
-        mkdir -p analysis/star_fusion/${sample.sample_id}
+        mkdir -p analysis/star_fusion/${sample.sample_id}/FusionInspector-validate
         ln -sf ${sample.star_files} analysis/star_fusion/${sample.sample_id}/
-        ln -sf ${sample.finspector_files} analysis/star_fusion/${sample.sample_id}/
+        ln -sf ${sample.finspector_files} analysis/star_fusion/${sample.sample_id}/FusionInspector-validate
         """
     }.join('\n    ')
     
@@ -33,7 +33,15 @@ process FILTER_AND_MERGE_SAMPLES {
     --outdir .
     """
     stub: 
+    def sample_setup = star_outputs.collect { sample ->
+        """
+        mkdir -p analysis/star_fusion/${sample.sample_id}/FusionInspector-validate
+        ln -sf ${sample.star_files} analysis/star_fusion/${sample.sample_id}/
+        ln -sf ${sample.finspector_files} analysis/star_fusion/${sample.sample_id}/FusionInspector-validate
+        """
+    }.join('\n    ')
     """
+    ${sample_setup}
     echo stub > "${meta.study_id}_merged_star-fusion.finspector.abridged.annotated.coding_effect.tsv"
     """
 
