@@ -9,8 +9,7 @@ process STAR_FUSION {
     path(CTAT_GENOME_LIB)
 
     output:
-    tuple val(meta), path("${meta.patient_id}/star-fusion.fusion_predictions*.tsv"), emit: starf_outputs
-    tuple val(meta), path("${meta.patient_id}/FusionInspector-validate/*"), optional: true, emit: fusion_inspector
+    tuple val(meta), path("${meta.patient_id}/star-fusion.fusion_predictions*.tsv"), path("${meta.patient_id}/FusionInspector-validate/finspector.FusionInspector.fusions.abridged.*", optional: true), emit: all_outs
     
     script:
     def TEMPDIR = "tmp"
@@ -35,16 +34,3 @@ process STAR_FUSION {
     echo stub > ${meta.patient_id}/FusionInspector-validate/finspector.FusionInspector.fusions.abridged.tsv.annotated.coding_effect
     """
 }
-
-
-  
-    // # Copy files with unique names (for collecting)
-    // for file in $TEMPDIR/star-fusion.fusion_predictions*.tsv; do
-    //     if [ -f "\$file" ]; then
-    //         cp "\$file" "${meta.patient_id}_\$(basename \$file)"
-    //     fi
-    // done
-    
-    // if [ -d "$TEMPDIR/FusionInspector-validate" ]; then
-    //     cp -r $TEMPDIR/FusionInspector-validate ${meta.patient_id}_FusionInspector-validate
-    // fi

@@ -4,8 +4,7 @@ process FILTER_AND_MERGE_SAMPLES {
                mode: "${params.publish_dir_mode}",
                overwrite: "true"
     input:
-        tuple val(meta), path(STAR_outputs, stageAs: "analysis/star_fusion/${STAR_outputs.name}")
-        tuple val(meta_Fins), path(FusionInspector_outputs, stageAs: "analysis/star_fusion/FusionInspector")
+        tuple val(meta), val(STAR_outputs)
         path(input_samples)
 
     output: 
@@ -14,6 +13,15 @@ process FILTER_AND_MERGE_SAMPLES {
     script:
     """
     # Recreate expected directory structure for R script
+    mkdir -p analysis/star_fusion
+    
+    # Organize files by sample ID based on filename patterns
+    for file in ${STAR_outputs}; do
+        # Extract sample ID from file path/name and create directory structure
+        sample_dir=\$(dirname "\$file" | sed 's|.*/||')
+        mkdir -p "analysis/star_fusion/\${sample_dir}"
+        ln -sf "\$(readlink -f \$file)" "analysis/star_fusion/\${sample_dir}/"
+    done
     
     Rscript /opt/repo/scripts/star_fusion_results_merge_from_list.R \
     --study_id "${meta.study_id}" \

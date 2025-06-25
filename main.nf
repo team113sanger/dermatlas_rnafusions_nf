@@ -27,27 +27,17 @@ workflow {
         ctat_genome_lib
     )
 
-
-    fusion_ins_ch = STAR_FUSION.out.fusion_inspector
-    .map { meta, fusion_inspector ->
-        fusion_inspector
-    }
-    .collect()
-    .map { collected ->
-        tuple(["study_id": params.study_id], collected)
-    }
+    STAR_FUSION.out.all_outs.view()
     
-    starf_ch = STAR_FUSION.out.starf_outputs
-    .map { meta, starf_res ->
-        starf_res
-    }
+    fusion_ins_ch = STAR_FUSION.out.all_outs
     .collect()
     .map { collected ->
         tuple(["study_id": params.study_id], collected)
     }
+    fusion_ins_ch.view()
+    
 
     FILTER_AND_MERGE_SAMPLES(
-        starf_ch,
         fusion_ins_ch,
         sample_list
         
