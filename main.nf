@@ -2,8 +2,8 @@
 nextflow.enable.dsl = 2
 
 include { STAR_FUSION } from "./modules/star_fusion.nf"
-include { FILTER_AND_MERGE_SAMPLES} from "./modules/post_process.nf"
-include { SUMMARY_PLOTS_AND_TABLES } from "./modules/post_process.nf"
+include { FILTER_AND_MERGE_SAMPLES; SUMMARY_PLOTS_AND_TABLES} from "./modules/post_process.nf"
+
 workflow {
     
     ctat_genome_lib = file(params.ctat_lib, checkIfExists: true)
@@ -27,7 +27,7 @@ workflow {
         ctat_genome_lib
     )
 
-    fusion_ins_ch = STAR_FUSION.out.all_outs
+    merge_ch = STAR_FUSION.out.all_outs
     .map { meta, starf_fusion, finspector ->
         ["sample_id": meta.patient_id, "star_files": starf_fusion, "finspector_files": finspector]
     }
