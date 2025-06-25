@@ -27,11 +27,9 @@ workflow {
         ctat_genome_lib
     )
 
-    STAR_FUSION.out.all_outs.view()
-
     fusion_ins_ch = STAR_FUSION.out.all_outs
     .map { meta, starf_fusion, finspector ->
-        ["sample_id": meta.sample_id, "star_files": file(starf_fusion), "finspector_files": file(finspector)]
+        ["sample_id": meta.patient_id, "star_files": starf_fusion, "finspector_files": finspector]
     }
     .collect()
     .map { file_list ->
