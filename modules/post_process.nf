@@ -6,7 +6,6 @@ process FILTER_AND_MERGE_SAMPLES {
     input:
         tuple val(meta), path(STAR_outputs, stageAs: "analysis/star_fusion/${STAR_outputs.name}")
         tuple val(meta_Fins), path(FusionInspector_outputs, stageAs: "analysis/star_fusion/FusionInspector")
-        tuple val(meta_Fins), path(FusionInspector_outputs, stageAs: '?/*/*')
         path(input_samples)
 ')
         path(input_samples)
