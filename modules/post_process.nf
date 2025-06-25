@@ -4,25 +4,28 @@ process FILTER_AND_MERGE_SAMPLES {
                mode: "${params.publish_dir_mode}",
                overwrite: "true"
     input:
-        tuple val(meta), val(STAR_outputs)
+        tuple val(meta), val(star_outputs)
         path(input_samples)
 
     output: 
         tuple val(meta), path("*_merged_star-fusion.finspector.abridged.annotated.coding_effect.tsv"), emit: merged_starf
     
     script:
+    def sample_setup = star_outputs.collect { sample ->
+        """
+        mkdir -p analysis/star_fusion/${sample.sample_id}
+        ln -sf ${sample.star_files} analysis/star_fusion/${sample.sample_id}/
+        ln -sf ${sample.finspector_files} analysis/star_fusion/${sample.sample_id}/
+        """
+    }.join('\n    ')
+    
     """
     # Recreate expected directory structure for R script
     mkdir -p analysis/star_fusion
-    
-    # Organize files by sample ID based on filename patterns
-    for file in ${STAR_outputs}; do
-        # Extract sample ID from file path/name and create directory structure
-        sample_dir=\$(dirname "\$file" | sed 's|.*/||')
-        mkdir -p "analysis/star_fusion/\${sample_dir}"
-        ln -sf "\$(readlink -f \$file)" "analysis/star_fusion/\${sample_dir}/"
-    done
-    
+
+    # Create symbolic links for each sample's files in the expected directory structure
+    ${sample_setup}
+
     Rscript /opt/repo/scripts/star_fusion_results_merge_from_list.R \
     --study_id "${meta.study_id}" \
     --input_samples $input_samples \

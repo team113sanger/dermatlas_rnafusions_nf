@@ -28,11 +28,14 @@ workflow {
     )
 
     STAR_FUSION.out.all_outs.view()
-    
+
     fusion_ins_ch = STAR_FUSION.out.all_outs
+    .map { meta, starf_fusion, finspector ->
+        ["sample_id": meta.sample_id, "star_files": file(starf_fusion), "finspector_files": file(finspector)]
+    }
     .collect()
-    .map { collected ->
-        tuple(["study_id": params.study_id], collected)
+    .map { file_list ->
+        tuple(["study_id": params.study_id], file_list)
     }
     fusion_ins_ch.view()
     
