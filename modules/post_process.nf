@@ -12,11 +12,14 @@ process FILTER_AND_MERGE_SAMPLES {
     
     script:
     def sample_setup = star_outputs.collect { sample ->
-        """
-        mkdir -p analysis/star_fusion/${sample.sample_id}/FusionInspector-validate
-        ln -sf ${sample.star_files} analysis/star_fusion/${sample.sample_id}/
-        ln -sf ${sample.finspector_files} analysis/star_fusion/${sample.sample_id}/FusionInspector-validate
-        """
+        def finspector_link = sample.finspector_files ? 
+        "ln -sf ${sample.finspector_files} analysis/star_fusion/${sample.sample_id}/FusionInspector-validate" : 
+        ""
+    """
+    mkdir -p analysis/star_fusion/${sample.sample_id}/FusionInspector-validate
+    ln -sf ${sample.star_files} analysis/star_fusion/${sample.sample_id}/
+    ${finspector_link}
+    """
     }.join('\n    ')
     
     """
@@ -34,11 +37,14 @@ process FILTER_AND_MERGE_SAMPLES {
     """
     stub: 
     def sample_setup = star_outputs.collect { sample ->
-        """
-        mkdir -p analysis/star_fusion/${sample.sample_id}/FusionInspector-validate
-        ln -sf ${sample.star_files} analysis/star_fusion/${sample.sample_id}/
-        ln -sf ${sample.finspector_files} analysis/star_fusion/${sample.sample_id}/FusionInspector-validate
-        """
+        def finspector_link = sample.finspector_files ? 
+        "ln -sf ${sample.finspector_files} analysis/star_fusion/${sample.sample_id}/FusionInspector-validate" : 
+        ""
+    """
+    mkdir -p analysis/star_fusion/${sample.sample_id}/FusionInspector-validate
+    ln -sf ${sample.star_files} analysis/star_fusion/${sample.sample_id}/
+    ${finspector_link}
+    """
     }.join('\n    ')
     """
     ${sample_setup}
