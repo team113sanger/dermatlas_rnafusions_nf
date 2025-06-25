@@ -13,11 +13,11 @@ process FILTER_AND_MERGE_SAMPLES {
     script:
     def sample_setup = star_outputs.collect { sample ->
         def finspector_links = sample.finspector_files ? 
-        sample.finspector_files.collect { file -> "ln -sf ${file} analysis/star_fusion/${sample.sample_id}/FusionInspector-validate" }.join('\n    ') : 
+        sample.finspector_files.collect { file -> "ln -sf ${file} analysis/star-fusion/${sample.sample_id}/FusionInspector-validate" }.join('\n    ') : 
         ""
-        def star_links = sample.star_files.collect { file -> "ln -sf ${file} analysis/star_fusion/${sample.sample_id}/" }.join('\n    ')
+        def star_links = sample.star_files.collect { file -> "ln -sf ${file} analysis/star-fusion/${sample.sample_id}/" }.join('\n    ')
         return """
-    mkdir -p analysis/star_fusion/${sample.sample_id}/FusionInspector-validate
+    mkdir -p analysis/star-fusion/${sample.sample_id}/FusionInspector-validate
     ${star_links}
     ${finspector_links}
     """
@@ -25,7 +25,7 @@ process FILTER_AND_MERGE_SAMPLES {
     
     """
     # Recreate expected directory structure for R script
-    mkdir -p analysis/star_fusion
+    mkdir -p analysis/star-fusion
 
     # Create symbolic links for each sample's files in the expected directory structure
     ${sample_setup}
@@ -39,11 +39,11 @@ process FILTER_AND_MERGE_SAMPLES {
     stub: 
     def sample_setup = star_outputs.collect { sample ->
         def finspector_links = sample.finspector_files ? 
-        sample.finspector_files.collect { file -> "ln -sf ${file} analysis/star_fusion/${sample.sample_id}/FusionInspector-validate" }.join('\n    ') : 
+        sample.finspector_files.collect { file -> "ln -sf ${file} analysis/star-fusion/${sample.sample_id}/FusionInspector-validate" }.join('\n    ') : 
         ""
-        def star_links = sample.star_files.collect { file -> "ln -sf ${file} analysis/star_fusion/${sample.sample_id}/" }.join('\n    ')
+        def star_links = sample.star_files.collect { file -> "ln -sf ${file} analysis/star-fusion/${sample.sample_id}/" }.join('\n    ')
         return """
-    mkdir -p analysis/star_fusion/${sample.sample_id}/FusionInspector-validate
+    mkdir -p analysis/star-fusion/${sample.sample_id}/FusionInspector-validate
     ${star_links}
     ${finspector_links}
     """
