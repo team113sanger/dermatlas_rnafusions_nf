@@ -1,0 +1,3 @@
+object	sample	study_id	id_run	lane	is_paired_read	alignment	tag_index	total_reads	md5	sample_supplier_name	study
+/seq/illumina/runs/0000/lane1/plex67/48777_1#67.cram	PD1001	7348	48777	1	1	1	67	84613394	aaa	PD1001	Test
+/seq/illumina/runs/0000/lane1/plex67/48777_1#68.cram	PD1002	7348	48777	1	1	1	67	84613394	aaa	PD1002	Test

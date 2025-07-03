@@ -11,19 +11,24 @@ dermatlas_rnafusions_nf is a bioinformatics pipeline written in [Nextflow](http:
 ## Pipeline summary
 
 In brief, the pipeline takes a set fastq files from a Dermatlas cohort and
-- Matches fastq files to patient metadata
+- Matches fastq files to patient metadata (PRIDs)
 - Runs STAR-Fusion to identify RNA fusions
 - Aggregates results into a single table
-- Generates a report 
+- Generates a report plotting fusion counts per sample and per gene
 
 ## Inputs 
 
-Inputs 
 
 ### Cohort-dependent variables
-
+- `fastq_path`: path to a top level directory containing a set of paired fastq files. The pipeline will search for all fastq files within this directory and subdirectories.
+- `sample_metadata`: path to a metadata file containing sample information. The metadata file should be a tab-separated file with the following columns:
+- `sample`: unique Sanger identifier for each sample
+- `sample_supplier_name`: Sample identifier provided for a tumour
+- `study_id`: unique identifier for the study to append to output summary files
+- `sample_list`: list of sample identifiers to include in the analysis.
 ### Cohort-independent variables
 
+`ctat_lib` : path to a STAR-Fusion Trintity Cancer Transcriptome Analysis Toolkit (CTAT) genome build directory (a required input for STAR-Fusion)
 
 Default reference file values supplied within the `nextflow.config` file can be overided by adding them to the params `.json` file. An example complete params file `tests/test_data/test_params.json` is supplied within this repo for demonstation.
 

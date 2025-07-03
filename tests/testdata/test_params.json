@@ -1,0 +1,7 @@
+{
+    "fastq_path": "${baseDir}/tests/testdata/**_R{1,2}.fastq.gz",
+    "sample_metadata":"${baseDir}/tests/testdata/metadata.tsv",
+    "ctat_lib": "${baseDir}/tests", 
+    "sample_list": "${baseDir}/tests/testdata/filter_samples.tsv",
+    "study_id": "0001"
+}

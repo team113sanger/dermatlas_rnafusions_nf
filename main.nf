@@ -2,9 +2,12 @@
 nextflow.enable.dsl = 2
 
 include { STAR_FUSION } from "./modules/star_fusion.nf"
-workflow {
+include { FILTER_AND_MERGE_SAMPLES; SUMMARY_PLOTS_AND_TABLES} from "./modules/post_process.nf"
+
+workflow FUSION_ANALYSIS{
     
-    ctat_genome_lib = file(params.ctat_lib)
+    ctat_genome_lib = file(params.ctat_lib, checkIfExists: true)
+    sample_list = file(params.sample_list, checkIfExists: true)
     
     reads_ch = Channel.fromFilePairs(params.fastq_path, flat: true)
     .map{ meta,read1,read2 -> tuple(["sanger_id": meta], read1, read2)}
@@ -24,23 +27,26 @@ workflow {
         ctat_genome_lib
     )
 
-//     STAR_FUSION.out.fusion_summary
-//     .map { meta, result_file -> 
-//         // Read the content of the result file
-//         def content = result_file.text
-//         // Add sample_id as first column to each line
-//         def modified_content = content.readLines().withIndex().collect { line, i ->
-//         if (i == 0) {
-//         // This is the header line, just add sample_name
-//             "sample_name\t${line}"
-//         }   else {
-//         // Add patient_id to all non-header lines
-//         "${meta.patient_id}\t${line}"
-//     }
-//     }.join("\n")
-// return modified_content
+    merge_ch = STAR_FUSION.out.star_fusion
+    .join(STAR_FUSION.out.fusion_inspector, by: 0, remainder: true)
+    .map { meta, starf_fusion, finspector ->
+        ["sample_id": meta.patient_id, "star_files": starf_fusion, "finspector_files": finspector]
+    }
+    .collect()
+    .map { file_list ->
+        tuple(["study_id": params.study_id], file_list)
+    }
 
-//     }
-//     .collectFile(name: 'collated_results.tsv', keepHeader: true newLine: true)
+    FILTER_AND_MERGE_SAMPLES(
+        merge_ch,
+        sample_list
+        
+    )
+    SUMMARY_PLOTS_AND_TABLES(FILTER_AND_MERGE_SAMPLES.out.merged_starf)
 
+
+}
+
+workflow {
+    FUSION_ANALYSIS()
 }
