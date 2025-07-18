@@ -56,7 +56,7 @@ module load /software/team113/modules/modulefiles/tw/0.6.2
 # Create a nextflow job that will spawn other jobs
 
 nextflow run 'https://gitlab.internal.sanger.ac.uk/DERMATLAS/analysis-methods/dermatlas_rnafusions_nf' \
--r 0.2.1 \
+-r 0.2.2 \
 -params-file $PARAMS_FILE \
 -c nextflow.config \
 -profile farm22 
