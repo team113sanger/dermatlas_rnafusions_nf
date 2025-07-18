@@ -64,7 +64,7 @@ process SUMMARY_PLOTS_AND_TABLES {
         tuple val(meta), path(table)
     
     output: 
-        tuple val(meta), path("*.pdf"), emit: plots
+        tuple val(meta), path("cohort_fusion_sumplots/*.pdf"), emit: plots
         tuple val(meta), path("*.tsv"), emit: tables
     
     script:
@@ -76,17 +76,17 @@ process SUMMARY_PLOTS_AND_TABLES {
         """
     stub: 
         """
-        echo stub > ${meta.study_id}_cohort_summary_fusions_found.pdf
-        echo stub > ${meta.study_id}_Combined_summary_ftypes_per_tot_fusfound_FILTERED.pdf
-        echo stub > ${meta.study_id}_Combined_summary_ftypes_per_tot_fusfound_unfilter.pdf
-        echo stub > ${meta.study_id}_FFPM_summary_by_ftype_persample.pdf
-        echo stub > ${meta.study_id}_fustype_summary_persample_FILTERED.pdf
-        echo stub > ${meta.study_id}_fustype_summary_persample.pdf
-        echo stub > ${meta.study_id}_summary_fusfound_nsamples_noftype_FILTERED.pdf
-        echo stub > ${meta.study_id}_summary_fusfound_nsamples_noftype_unfilter.pdf
-        echo stub > ${meta.study_id}_summary_prop_ftypes_per_tot_fusfound_FILTERED.pdf
-        echo stub > ${meta.study_id}_summary_prop_ftypes_per_tot_fusfound_unfilter.pdf
-        echo stub > ${meta.study_id}_summary_fusfound_nsamples_noftype.pdf
-        echo stub > ${meta.study_id}_table.FILTERED.tsv
+        echo stub > cohort_fusion_sumplots/${meta.study_id}_cohort_summary_fusions_found.pdf
+        echo stub > cohort_fusion_sumplots/${meta.study_id}_Combined_summary_ftypes_per_tot_fusfound_FILTERED.pdf
+        echo stub > cohort_fusion_sumplots/${meta.study_id}_Combined_summary_ftypes_per_tot_fusfound_unfilter.pdf
+        echo stub > cohort_fusion_sumplots/${meta.study_id}_FFPM_summary_by_ftype_persample.pdf
+        echo stub > cohort_fusion_sumplots/${meta.study_id}_fustype_summary_persample_FILTERED.pdf
+        echo stub > cohort_fusion_sumplots/${meta.study_id}_fustype_summary_persample.pdf
+        echo stub > cohort_fusion_sumplots/${meta.study_id}_summary_fusfound_nsamples_noftype_FILTERED.pdf
+        echo stub > cohort_fusion_sumplots/${meta.study_id}_summary_fusfound_nsamples_noftype_unfilter.pdf
+        echo stub > cohort_fusion_sumplots/${meta.study_id}_summary_prop_ftypes_per_tot_fusfound_FILTERED.pdf
+        echo stub > cohort_fusion_sumplots/${meta.study_id}_summary_prop_ftypes_per_tot_fusfound_unfilter.pdf
+        echo stub > cohort_fusion_sumplots/${meta.study_id}_summary_fusfound_nsamples_noftype.pdf
+        echo stub > cohort_fusion_sumplots/${meta.study_id}_table.FILTERED.tsv
         """
 }
