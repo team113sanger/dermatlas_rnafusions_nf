@@ -46,7 +46,7 @@ An example wrapper script:
 #BSUB -oo rna_fusions_%J.o
 #BSUB -eo rna_fusions_%J.e
 
-PARAMS_FILE="/lustre/scratch125/casm/team113da/users/jb63/nf_germline_testing/params.json"
+CONFIG="/lustre/scratch125/casm/team113da/users/jb63/nf_germline_testing/rna_fusions.config"
 
 # Load module dependencies
 module load nextflow-23.10.0
