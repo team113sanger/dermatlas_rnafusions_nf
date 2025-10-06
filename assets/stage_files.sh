@@ -8,8 +8,18 @@
 set -euo pipefail
 
 module load IRODS
-module load HGI/pipelines/irods_to_lustre
- 
+module load HGI/pipelines/irods_to_lustre/0.2.2
+
+# Create isolated pipeline directory
+PIPELINE_DIR="${PROJECT_DIR}/stage_files"
+mkdir -p "${PIPELINE_DIR}"
+
+# Set isolated Nextflow directories
+export NXF_WORK="${PIPELINE_DIR}/work"
+export NXF_TEMP="${PIPELINE_DIR}/tmp"
+mkdir -p "${NXF_WORK}" "${NXF_TEMP}"
+
+
 irods_to_lustre \
--w "${PROJECT_DIR}/work" \
+-w "${NXF_WORK}" \
 -c "${PROJECT_DIR}/commands/staging.config"
