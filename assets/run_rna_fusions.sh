@@ -7,7 +7,7 @@
 set -euo pipefail
 
 CONFIG="${PROJECT_DIR}/commands/rna_fusion.config"
-REVISION=${0.2.2}
+REVISION="0.2.3"
 
 # Create isolated pipeline directory
 PIPELINE_DIR="${PROJECT_DIR}/rnafusions_pipeline"
