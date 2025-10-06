@@ -9,6 +9,7 @@ set -euo pipefail
 
 module load IRODS
 module load HGI/pipelines/irods_to_lustre/0.2.2
+source ${PROJECT_DIR}/source_me.sh
 
 # Create isolated pipeline directory
 PIPELINE_DIR="${PROJECT_DIR}/stage_files"
