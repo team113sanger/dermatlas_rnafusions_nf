@@ -6,69 +6,96 @@
 
 ## Introduction
 
-dermatlas_rnafusions_nf is a bioinformatics pipeline written in [Nextflow](http://www.nextflow.io) for identifying RNA fusions in tumor samples.
+dermatlas_rnafusions_nf is a bioinformatics pipeline written in [Nextflow](http://www.nextflow.io) for identifying gene fusions in cohorts of tumors for the Dermatlas project.
 
 ## Pipeline summary
 
 In brief, the pipeline takes a set fastq files from a Dermatlas cohort and
 - Matches fastq files to patient metadata (PRIDs)
 - Runs STAR-Fusion to identify RNA fusions
-- Aggregates results into a single table
+- Aggregates the results of STAR-fusuion into a single table
 - Generates a report plotting fusion counts per sample and per gene
 
 ## Inputs 
 
 
 ### Cohort-dependent variables
-- `fastq_path`: path to a top level directory containing a set of paired fastq files. The pipeline will search for all fastq files within this directory and subdirectories.
+- `fastq_path`: path to a top level directory containing a set of paired fastq files(R1 and R2). The pipeline will search for all fastq files within this directory and subdirectories.
 - `sample_metadata`: path to a metadata file containing sample information. The metadata file should be a tab-separated file with the following columns:
-- `sample`: unique Sanger identifier for each sample
-- `sample_supplier_name`: Sample identifier provided for a tumour
-- `study_id`: unique identifier for the study to append to output summary files
-- `sample_list`: list of sample identifiers to include in the analysis.
+    - `sample`: Unique Sanger identifier for each sample
+    - `sample_supplier_name`: Dermatlas sample identifier for a tumour (PRID)
+- `study_id`: Unique identifier for the study to append to any output summary files
+- `sample_list`: A list of sDermatlas sample identifier to include in the analysis. Should match `sample_supplier_name` entries
 ### Cohort-independent variables
 
 `ctat_lib` : path to a STAR-Fusion Trintity Cancer Transcriptome Analysis Toolkit (CTAT) genome build directory (a required input for STAR-Fusion)
 
-Default reference file values supplied within the `nextflow.config` file can be overided by adding them to the params `.json` file. An example complete params file `tests/test_data/test_params.json` is supplied within this repo for demonstation.
+Default reference file values supplied within the `nextflow.config` file can be overided by adding them to a local `.config` file. An example complete params file `tests/test_data/test_params.json` is supplied within this repository for demonstation.
 
 ## Usage 
 
-The recommended way to launch this pipeline is using a wrapper script (e.g. `bsub < my_wrapper.sh`) that submits nextflow as a job and records the version (**e.g.** `-r 0.1.1`)  and the `.json` parameter file supplied for a run.
+The recommended way to launch this pipeline is using a wrapper script (e.g. `bsub < my_wrapper.sh`) that submits nextflow as a job and records the version (**e.g.** `-r 0.2.2`)  and the `.config` parameter file supplied for a run.
 
 An example wrapper script:
 ```
 #!/bin/bash
-#BSUB -q normal
-#BSUB -G team113
+#BSUB -q oversubscribed
+#BSUB -G team113-grp
 #BSUB -R "select[mem>8000] rusage[mem=8000] span[hosts=1]"
 #BSUB -M 8000
-#BSUB -oo nf_out.o
-#BSUB -eo nf_out.e
+#BSUB -oo rna_fusions_%J.o
+#BSUB -eo rna_fusions_%J.e
 
-PARAMS_FILE="/lustre/scratch125/casm/team113da/users/jb63/nf_germline_testing/params.json"
+CONFIG="/lustre/scratch125/casm/team113da/users/jb63/nf_germline_testing/rna_fusions.config"
 
 # Load module dependencies
 module load nextflow-23.10.0
 module load /software/modules/ISG/singularity/3.11.4
-module load /software/team113/modules/modulefiles/tw/0.6.2
 
 # Create a nextflow job that will spawn other jobs
 
 nextflow run 'https://gitlab.internal.sanger.ac.uk/DERMATLAS/analysis-methods/dermatlas_rnafusions_nf' \
--r 0.2.2 \
--params-file $PARAMS_FILE \
--c nextflow.config \
+-r 0.2.3 \
+-c ${CONFIG_FILE} \
 -profile farm22 
 ```
 
-The pipeline can configured to run on either Sanger OpenStack secure-lustre instances or farm22 by changing the profile speicified:
+The pipeline can configured to run on either Sanger OpenStack secure-lustre instances or the Sanger farm22 HPC by changing the profile speicified:
 `-profile secure_lustre` or `-profile farm22`. 
 
 ## Pipeline visualisation 
 Created using nextflow's in-built visualitation features.
+nextflow run main.nf -preview -with-dag flowchart.mmd -params-file tests/testdata/test_params.json 
 
 ```mermaid
+flowchart TB
+    subgraph " "
+    v0["Channel.fromFilePairs"]
+    v2["Channel.fromPath"]
+    v7["CTAT_GENOME_LIB"]
+    v13["input_samples"]
+    end
+    subgraph "FUSION_ANALYSIS [FUSION_ANALYSIS]"
+    v8(["STAR_FUSION"])
+    v14(["FILTER_AND_MERGE_SAMPLES"])
+    v15(["SUMMARY_PLOTS_AND_TABLES"])
+    v1(( ))
+    v9(( ))
+    end
+    subgraph " "
+    v16[" "]
+    v17[" "]
+    end
+    v0 --> v1
+    v2 --> v1
+    v7 --> v8
+    v1 --> v8
+    v8 --> v9
+    v13 --> v14
+    v9 --> v14
+    v14 --> v15
+    v15 --> v17
+    v15 --> v16
 ```
 
 ## Testing
