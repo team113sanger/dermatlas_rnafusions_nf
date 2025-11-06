@@ -1,5 +1,5 @@
 process FILTER_AND_MERGE_SAMPLES {
-    container "gitlab-registry.internal.sanger.ac.uk/dermatlas/analysis-methods/dermatlas-starfusion:0.5.0"
+    container "gitlab-registry.internal.sanger.ac.uk/dermatlas/analysis-methods/dermatlas-starfusion:0.6.3"
     publishDir path: "${params.outdir}", 
                mode: "${params.publish_dir_mode}",
                overwrite: "true"
