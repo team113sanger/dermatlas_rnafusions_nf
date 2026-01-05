@@ -13,7 +13,7 @@ RNA Fusion calling and post-processing for DERMATLAS can be run mostly with a tw
 
 First, we need to download the raw read data that we will use for the analysis. We will do this using HGIs irods-to-lustre tool:  a pipeline which can stage merge and unwind aligned seqeuncing data from irods. This workflow assumes you have setup your project using projectify and [Dermatlas analysis setup (v1.0.0](/spaces/CAS/pages/156434559/Dermatlas+analysis+setup+v1.0.0)). If this is the case should have an RNA project directory that looks something like this:
 
-```java
+```bash
 .
 ├── analysis
 ├── commands
@@ -27,7 +27,7 @@ First, we need to download the raw read data that we will use for the analysis. 
 
 If you follow along the steps detailed in [Dermatlas analysis setup (v1.0.0)#StagingFastqs(RNA)](/spaces/CAS/pages/156434559/Dermatlas+analysis+setup+v1.0.0#Dermatlasanalysissetup(v1.0.0)-StagingFastqs(RNA))  then this should poplulate your fastq directory with paired end fastq data with names indicating each sample's Sanger ID. For example:
 
-```java
+```bash
 ├── 7348STDY13944490_1.fastq.gz
 ├── 7348STDY13944490_2.fastq.gz
 ├── 7348STDY13944490.fastq.gz
@@ -45,7 +45,7 @@ which contains the mappings of Sanger sample IDs to Dermatlas PDIDs. For example
 
 Once your fastq data is downloaded via irods-to-lustre, please ensure you cleanup the **crams,** **merged crams** and nextflow **work** directories created by the staging pipeline as these files are often large and won't be of any use for work downstream.
 
-```java
+```bash
 cd $PROJECT_DIR
 rm -rf merged_crams
 rm -rf crams
@@ -58,7 +58,7 @@ Now, we can proceed with generating a configuration file for the RNA fusions pip
 
 **Example config file:**
 
-```java
+```json
 params {
     fastq_path = "${PROJECT_DIR}/fastq/**_{1,2}.fastq.gz"
     sample_metadata = "${METADATA_DIR}/samples_noduplicates.tsv"
@@ -80,7 +80,7 @@ In this script the "`-r"`  option specifies which version of the pipeline you'd
 
 **run\_fusion\_calling.sh**
 
-```java
+```bash
 #!/bin/bash
 #BSUB -q oversubscribed
 #BSUB -G team113-grp
@@ -108,7 +108,7 @@ nextflow run "https://github.com/team113sanger/dermatlas_rnafusions_nf" \
 
 If you called the script `run_rna_fusions.sh` then you'll be able to submit 
 
-```java
+```bash
 bsub < run_rna_fusions.sh
 ```
 
@@ -118,7 +118,7 @@ The bsub magic at the start of the wrapper script will send a nextflow "master j
 
  There are several reasons the RNAfusions pipeline might fail including bugs in the pipeline; issues with LSF; or misconfiguration.  In most cases (especially when you suspect a farm/ LSF failure), simply re-submitting the pipeline with
 
-```java
+```bash
 bsub < run_rna_fusions.sh
 ```
 
@@ -128,7 +128,7 @@ It is often worth taking a glance at the pipeline logs (<YOUR\_PROJECT\_DIR>/ana
 
 When jobs fail, nextflow will provide the path to the directory a failed job was run in. I'd recommend inspecting the files in here with `ls -la` and printing some of the log files for the job with
 
-```java
+```bash
 cat .command.err
 cat .command.out
 cat .command.sh
