@@ -1,6 +1,6 @@
 process FILTER_AND_MERGE_SAMPLES {
     container "gitlab-registry.internal.sanger.ac.uk/dermatlas/analysis-methods/dermatlas-starfusion:0.6.3"
-    publishDir path: "${params.outdir}", 
+    publishDir path: { "${params.outdir}/${meta.cohort_id}" },
                mode: "${params.publish_dir_mode}",
                overwrite: "true"
     input:
@@ -57,7 +57,7 @@ process FILTER_AND_MERGE_SAMPLES {
 
 process SUMMARY_PLOTS_AND_TABLES {
     container "gitlab-registry.internal.sanger.ac.uk/dermatlas/analysis-methods/dermatlas-starfusion:0.5.0"
-    publishDir path: "${params.outdir}", 
+    publishDir path: "${params.outdir}/${meta.cohort_id}", 
                mode: "${params.publish_dir_mode}",
                overwrite: "true"
     input:

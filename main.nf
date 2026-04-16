@@ -48,7 +48,8 @@ workflow FUSION_ANALYSIS{
     subcohorts_ch = Channel.fromList(
         params.subcohorts.collect { subcohort_name, config ->
             tuple(
-                ["study_id": subcohort_name],
+                ["cohort_id": subcohort_name, "study_id": params.study_id], 
+                file(config.sample_list, checkIfExists: true)
                 file(config.sample_list, checkIfExists: true)
             )
         }
