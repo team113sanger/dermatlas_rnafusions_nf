@@ -50,7 +50,6 @@ workflow FUSION_ANALYSIS{
             tuple(
                 ["cohort_id": subcohort_name, "study_id": params.study_id], 
                 file(config.sample_list, checkIfExists: true)
-                file(config.sample_list, checkIfExists: true)
             )
         }
     )
