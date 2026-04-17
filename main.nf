@@ -12,6 +12,12 @@ workflow FUSION_ANALYSIS{
               "Example: subcohorts = ['cohort_name': [sample_list: '/path/to/samples.tsv']]"
     }
 
+    // Validate study_id — flows into every output filename, so an unset value
+    // would silently produce files prefixed with "null_".
+    if (!params.study_id) {
+        error "ERROR: params.study_id must be set. It is used as a prefix for all merged tables and summary plots."
+    }
+
     // Log subcohorts being processed
     log.info("Processing subcohorts: ${params.subcohorts.keySet().join(', ')}")
 

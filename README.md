@@ -13,8 +13,8 @@ dermatlas_rnafusions_nf is a bioinformatics pipeline written in [Nextflow](http:
 In brief, the pipeline takes a set fastq files from a Dermatlas cohort and
 - Matches fastq files to patient metadata (PRIDs)
 - Runs STAR-Fusion to identify RNA fusions
-- Aggregates the results of STAR-fusuion into a single table
-- Generates a report plotting fusion counts per sample and per gene
+- Aggregates the results of STAR-Fusion into a merged table per subcohort
+- Generates a report plotting fusion counts per sample and per gene for each subcohort
 
 ## Inputs 
 
@@ -24,8 +24,15 @@ In brief, the pipeline takes a set fastq files from a Dermatlas cohort and
 - `sample_metadata`: path to a metadata file containing sample information. The metadata file should be a tab-separated file with the following columns:
     - `sample`: Unique Sanger identifier for each sample
     - `sample_supplier_name`: Dermatlas sample identifier for a tumour (PRID)
-- `study_id`: Unique identifier for the study to append to any output summary files
-- `sample_list`: A list of sDermatlas sample identifier to include in the analysis. Should match `sample_supplier_name` entries
+- `study_id`: Unique identifier for the study. Used as a prefix on all merged tables and summary plot filenames. **Required.**
+- `subcohorts`: A map of one or more subcohorts to post-process from the same set of STAR-Fusion results. Each entry has a subcohort name (used as `cohort_id` and as the output sub-directory under `outdir`) and a `sample_list` path pointing to a TSV of Dermatlas sample identifiers matching `sample_supplier_name` entries. Example:
+
+```groovy
+subcohorts = [
+    "one_per_patient": [ sample_list: "/path/to/one_per_patient_sampnames.tsv" ],
+    "final_decision":  [ sample_list: "/path/to/final_decision_sampnames.tsv" ]
+]
+```
 ### Cohort-independent variables
 
 `ctat_lib` : path to a STAR-Fusion Trintity Cancer Transcriptome Analysis Toolkit (CTAT) genome build directory (a required input for STAR-Fusion)
@@ -55,8 +62,8 @@ module load /software/modules/ISG/singularity/3.11.4
 # Create a nextflow job that will spawn other jobs
 
 nextflow run 'https://gitlab.internal.sanger.ac.uk/DERMATLAS/analysis-methods/dermatlas_rnafusions_nf' \
--r 0.2.3 \
--c ${CONFIG_FILE} \
+-r 0.3.0 \
+-c ${CONFIG} \
 -profile farm22 
 ```
 
@@ -73,29 +80,29 @@ flowchart TB
     v0["Channel.fromFilePairs"]
     v2["Channel.fromPath"]
     v7["CTAT_GENOME_LIB"]
-    v13["input_samples"]
+    v12["Channel.fromList"]
     end
     subgraph "FUSION_ANALYSIS [FUSION_ANALYSIS]"
     v8(["STAR_FUSION"])
-    v14(["FILTER_AND_MERGE_SAMPLES"])
-    v15(["SUMMARY_PLOTS_AND_TABLES"])
+    v18(["FILTER_AND_MERGE_SAMPLES"])
+    v19(["SUMMARY_PLOTS_AND_TABLES"])
     v1(( ))
     v9(( ))
     end
     subgraph " "
-    v16[" "]
-    v17[" "]
+    v20[" "]
+    v21[" "]
     end
     v0 --> v1
     v2 --> v1
     v7 --> v8
     v1 --> v8
     v8 --> v9
-    v13 --> v14
-    v9 --> v14
-    v14 --> v15
-    v15 --> v17
-    v15 --> v16
+    v12 --> v9
+    v9 --> v18
+    v18 --> v19
+    v19 --> v21
+    v19 --> v20
 ```
 
 ## Testing
