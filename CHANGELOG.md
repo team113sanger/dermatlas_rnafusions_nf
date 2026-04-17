@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-04-17
+### Added
+- Update pipeline structure to allow multiple subcohort post-processing in one via a list structure. 
+  Nested data structure `subcohorts = [subcohort_name_1, subcohort_name_2]` where each subcohorts attributes are encoded in a map.
+
 ## [0.2.4] - 2025-11-06
 ### Added
 - Update `post_process.nf` module to tag `0.6.3`
