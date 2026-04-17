@@ -7,7 +7,7 @@
 set -euo pipefail
 
 CONFIG="${PROJECT_DIR}/commands/rna_fusion.config"
-REVISION="feature/simplify_multiplexing"
+REVISION="0.3.0"
 
 # Create isolated pipeline directory
 PIPELINE_DIR="${PROJECT_DIR}/rnafusions_pipeline"
