@@ -5,6 +5,7 @@
 #BSUB -M 8000
 
 set -euo pipefail
+source source_me.sh
 
 CONFIG="${PROJECT_DIR}/commands/rna_fusion.config"
 REVISION="0.3.0"
