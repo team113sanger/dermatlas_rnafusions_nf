@@ -54,9 +54,11 @@ workflow FUSION_ANALYSIS{
         }
     )
 
-    // Combine each subcohort with all star fusion outputs
+    // Combine each subcohort with all star fusion outputs.
+    // Wrap the collected list so .combine() treats it as a single tuple element
+    // instead of spreading each sample-map as its own element.
     merge_ch = subcohorts_ch
-        .combine(star_fusion_outputs)
+        .combine(star_fusion_outputs.map { samples -> [samples] })
         .map { meta, sample_list, file_list ->
             tuple(meta, file_list, sample_list)
         }
