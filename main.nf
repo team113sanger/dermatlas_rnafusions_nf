@@ -79,5 +79,31 @@ workflow FUSION_ANALYSIS{
 }
 
 workflow {
+    // Report that the run has started (if a status API is configured and this
+    // is not a stub run). Reporting failures are logged but never fatal.
+    def is_stub_run = Utils.parseCLIBool(params.is_stub, false)
+    def _api_url    = (params.status_api_url ?: '').toString().trim()
+    if (_api_url && !is_stub_run) {
+        if (Utils.reportRunStatus(_api_url, 'running', workflow, params)) {
+            log.info "Reported status 'running' to status API"
+        } else {
+            log.warn "Failed to report 'running' status to status API (pipeline result is unaffected)"
+        }
+    }
+
     FUSION_ANALYSIS()
+}
+
+workflow.onComplete {
+    // Runs on both success and failure, after all processes have finished.
+    def is_stub_run = Utils.parseCLIBool(params.is_stub, false)
+    def _api_url    = (params.status_api_url ?: '').toString().trim()
+    if (_api_url && !is_stub_run) {
+        def _status = workflow.success ? 'succeeded' : 'failed'
+        if (Utils.reportRunStatus(_api_url, _status, workflow, params)) {
+            log.info "Reported status '${_status}' to status API"
+        } else {
+            log.warn "Failed to report '${_status}' status to status API (pipeline result is unaffected)"
+        }
+    }
 }
