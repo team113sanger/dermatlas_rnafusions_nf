@@ -78,7 +78,8 @@ class Utils {
         def label = 'RNA-fusions analysis'
         def ref = runRef(runId, cohortSlug)
         def msg = ":octagonal_sign: *${label} pipeline* failed - `${ref}`\n" +
-                  "_Pipeline v${version} | Duration: ${duration}_"
+                  "_Pipeline v${version} | Duration: ${duration}_" +
+                  "Nextflow Log: ${nxfLogFile ?: 'N/A'}\n" +
 
         def processName = parseProcessName(errorReport)
         def workDir = parseWorkDir(errorReport)
