@@ -48,14 +48,75 @@ class Utils {
         throw new IllegalArgumentException(errMsg(paramName, givenValue, "expected true/false/1/0 (case-insensitive)"))
     }
 
+    // ---- Run-completion entry point ----
+
+    /**
+     * Single entry point for `workflow.onComplete`. Drop this into any pipeline:
+     *
+     *   workflow.onComplete { Utils.reportRun(workflow, params) }
+     *
+     * Everything pipeline-specific is read from `workflow.manifest` and `params`,
+     * so this method is identical across pipelines. Notifications and the
+     * analysis-log call are best-effort: a failure here never changes the
+     * pipeline's exit status.
+     */
+    static void reportRun(def workflow, def params) {
+        println "Pipeline completed at: ${workflow.complete}"
+        if (workflow.success) {
+            println "Pipeline finished successfully!"
+        } else {
+            System.err.println "Pipeline finished with errors!"
+        }
+
+        boolean isStub  = parseCLIBool(params.is_stub, false)
+        String cohort   = (params.cohort_slug ?: '').toString().trim()
+        String runId    = buildRunId(params)
+        // Label shown in Slack: prefer the human-readable manifest description,
+        // fall back to the manifest name, then a generic default.
+        String label    = (workflow.manifest?.description ?: workflow.manifest?.name ?: 'pipeline').toString()
+        String version  = workflow.manifest?.version
+
+        // Slack notification (if a webhook is configured and this is not a stub run)
+        String slackUrl = (params.slack_webhook_url ?: '').toString().trim()
+        if (slackUrl && !isStub) {
+            boolean sent
+            if (workflow.success) {
+                sent = sendSlackSuccess(slackUrl, runId, version, workflow.duration, label, cohort)
+            } else {
+                String nxfLog = System.getenv('NXF_LOG_FILE') ?: ''
+                sent = sendSlackFailure(slackUrl, runId, version, workflow.duration, label,
+                                        workflow.errorReport, nxfLog, cohort)
+            }
+            if (sent) {
+                println "Slack notification sent"
+            } else {
+                System.err.println "WARNING: Slack notification failed (pipeline result is unaffected)"
+            }
+        }
+
+        // Append a run record to the cohort analysis-log (if configured and not a stub run)
+        String logUrl = (params.analysis_log_api_url ?: '').toString().trim()
+        if (logUrl && !isStub) {
+            String runStatus    = workflow.success ? 'completed' : 'failed'
+            String pipelineSlug = (params.analysis_pipeline_slug ?: '').toString().trim()
+            Integer sampleVer   = readSampleListVersion(params.sample_list_version)
+            if (reportCohortAnalysisLog(logUrl, cohort, pipelineSlug, runStatus, sampleVer, version)) {
+                println "Reported analysis run for cohort '${cohort}' (${runStatus}) to analysis-log API"
+            } else {
+                System.err.println "WARNING: Failed to report analysis run for cohort '${cohort}' to analysis-log API (pipeline result is unaffected)"
+            }
+        }
+    }
+
     // ---- Slack notification helpers ----
 
     /**
      * Notify Slack that the pipeline completed successfully.
+     *
+     * @param label human-readable pipeline name (e.g. workflow.manifest.description)
      */
     static boolean sendSlackSuccess(String webhookUrl, String runId, String version,
-                                    def duration, String cohortSlug = '') {
-        def label = 'RNA-fusions analysis'
+                                    def duration, String label, String cohortSlug = '') {
         def ref = runRef(runId, cohortSlug)
         String msg = ":white_check_mark: *${label} pipeline* completed successfully - `${ref}`\n" +
             "_Pipeline v${version} | Duration: ${duration}_"
@@ -73,13 +134,11 @@ class Utils {
      * @param nxfLogFile   NXF_LOG_FILE path (may be null or empty)
      */
     static boolean sendSlackFailure(String webhookUrl, String runId, String version,
-                                    def duration, String errorReport, String nxfLogFile,
-                                    String cohortSlug = '') {
-        def label = 'RNA-fusions analysis'
+                                    def duration, String label, String errorReport,
+                                    String nxfLogFile, String cohortSlug = '') {
         def ref = runRef(runId, cohortSlug)
         def msg = ":octagonal_sign: *${label} pipeline* failed - `${ref}`\n" +
-                  "_Pipeline v${version} | Duration: ${duration}_" +
-                  "Nextflow Log: ${nxfLogFile ?: 'N/A'}\n"
+                  "_Pipeline v${version} | Duration: ${duration}_"
 
         def processName = parseProcessName(errorReport)
         def workDir = parseWorkDir(errorReport)
@@ -142,6 +201,44 @@ class Utils {
     private static String errMsg(String paramName, Object givenValue, String expectation) {
         String namePart = paramName ? "--${paramName} " : ""
         return "Invalid ${namePart}${givenValue} (${expectation})"
+    }
+
+    /**     *
+     * An explicit `params.run_id` wins outright. Otherwise the id is assembled
+     * from the STUDY / PROJECT env vars used by our run wrappers; the
+     * genotype falls back to `params.default_genotype` (then 'rna') so non-RNA
+     * pipelines can set their own default rather than inheriting this one.
+     */
+    private static String buildRunId(def params) {
+        if (params?.run_id) {
+            return params.run_id.toString()
+        }
+        String study    = System.getenv('STUDY') ?: ''
+        String project  = System.getenv('PROJECT') ?: ''
+        return "${study}_${project}"
+    }
+
+    /**
+     * Read the sample-list version from a file whose contents are a single
+     * integer. Returns null (with a stderr warning) if the path is unset, the
+     * file is missing, or it does not contain an integer — in which case the
+     * analysis-log call is skipped.
+     */
+    private static Integer readSampleListVersion(def sampleListVersionPath) {
+        if (!sampleListVersionPath) {
+            return null
+        }
+        def f = new File(sampleListVersionPath.toString())
+        if (!f.exists()) {
+            System.err.println("WARNING: sample_list_version file '${f}' not found; analysis-log will be skipped")
+            return null
+        }
+        try {
+            return f.text.trim() as Integer
+        } catch (NumberFormatException e) {
+            System.err.println("WARNING: sample_list_version file '${f}' does not contain an integer; analysis-log will be skipped")
+            return null
+        }
     }
 
     /**
