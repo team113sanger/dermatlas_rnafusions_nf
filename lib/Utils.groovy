@@ -118,7 +118,7 @@ class Utils {
     static boolean sendSlackSuccess(String webhookUrl, String runId, String version,
                                     def duration, String label, String cohortSlug = '') {
         def ref = runRef(runId, cohortSlug)
-        String msg = ":white_check_mark: *${label} pipeline* completed successfully - `${ref}`\n" +
+        String msg = ":white_check_mark: *${label}* completed successfully - `${ref}`\n" +
             "_Pipeline v${version} | Duration: ${duration}_"
 
         return postSlackMessage(webhookUrl, msg)
@@ -137,7 +137,7 @@ class Utils {
                                     def duration, String label, String errorReport,
                                     String nxfLogFile, String cohortSlug = '') {
         def ref = runRef(runId, cohortSlug)
-        def msg = ":octagonal_sign: *${label} pipeline* failed - `${ref}`\n" +
+        def msg = ":octagonal_sign: *${label}* failed - `${ref}`\n" +
                   "_Pipeline v${version} | Duration: ${duration}_"
 
         def processName = parseProcessName(errorReport)
