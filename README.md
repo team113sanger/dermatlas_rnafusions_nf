@@ -10,8 +10,8 @@ dermatlas_rnafusions_nf is a bioinformatics pipeline written in [Nextflow](http:
 
 ## Pipeline summary
 
-In brief, the pipeline takes a set fastq files from a Dermatlas cohort and
-- Matches fastq files to patient metadata (PRIDs)
+In brief, the pipeline takes a set fastq files (or indexed BAMs) from a Dermatlas cohort and
+- Matches fastq files to patient metadata (PRIDs), or unwinds indexed BAMs to paired-end reads with samtools (deriving the PRID from the filename)
 - Runs STAR-Fusion to identify RNA fusions
 - Aggregates the results of STAR-Fusion into a merged table per subcohort
 - Generates a report plotting fusion counts per sample and per gene for each subcohort
@@ -20,8 +20,12 @@ In brief, the pipeline takes a set fastq files from a Dermatlas cohort and
 
 
 ### Cohort-dependent variables
-- `fastq_path`: path to a top level directory containing a set of paired fastq files(R1 and R2). The pipeline will search for all fastq files within this directory and subdirectories.
-- `sample_metadata`: path to a metadata file containing sample information. The metadata file should be a tab-separated file with the following columns:
+
+Provide **exactly one** input mode, either `fastq_path` or `bam_path`:
+
+- `fastq_path`: path to a top level directory containing a set of paired fastq files(R1 and R2). The pipeline will search for all fastq files within this directory and subdirectories. Requires `sample_metadata` to map Sanger ids to PRIDs.
+- `bam_path`: glob matching a set of indexed BAMs **and** their `.bai` index files, e.g. `"/path/to/bams/*.bam*"`. Each BAM is unwound back to paired-end reads with `samtools` before STAR-Fusion. The patient id (PRID) is derived directly from the BAM filename, taking the prefix before the first dot (`PD1001.sample.dupmarked.bam` -> `PD1001`), so `sample_metadata` is not required in this mode.
+- `sample_metadata`: path to a metadata file containing sample information (only used with `fastq_path`). The metadata file should be a tab-separated file with the following columns:
     - `sample`: Unique Sanger identifier for each sample
     - `sample_supplier_name`: Dermatlas sample identifier for a tumour (PRID)
 - `study_id`: Unique identifier for the study. Used as a prefix on all merged tables and summary plot filenames. **Required.**

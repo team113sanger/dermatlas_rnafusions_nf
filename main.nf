@@ -2,6 +2,7 @@
 nextflow.enable.dsl = 2
 
 include { STAR_FUSION } from "./modules/star_fusion.nf"
+include { BAM_TO_FASTQ } from "./modules/bam_to_fastq.nf"
 include { FILTER_AND_MERGE_SAMPLES; SUMMARY_PLOTS_AND_TABLES} from "./modules/post_process.nf"
 
 workflow FUSION_ANALYSIS{
@@ -21,19 +22,69 @@ workflow FUSION_ANALYSIS{
     // Log subcohorts being processed
     log.info("Processing subcohorts: ${params.subcohorts.keySet().join(', ')}")
 
+    // Validate that exactly one input mode is configured.
+    if (params.bam_path && params.fastq_path) {
+        error "ERROR: provide either params.bam_path or params.fastq_path, not both."
+    }
+    if (!params.bam_path && !params.fastq_path) {
+        error "ERROR: one of params.bam_path (indexed BAMs) or params.fastq_path (paired FASTQs) must be set."
+    }
+
     ctat_genome_lib = file(params.ctat_lib, checkIfExists: true)
 
-    reads_ch = Channel.fromFilePairs(params.fastq_path, flat: true)
-    .map{ meta,read1,read2 -> tuple(["sanger_id": meta], read1, read2)}
+    if (params.bam_path) {
+        // BAM input mode: accept indexed BAMs and derive the patient_id from the
+        // filename, taking the prefix before the first dot so trailing tags are
+        // dropped (e.g. PD1001.sample.dupmarked.bam -> PD1001). The glob should
+        // match both the BAM and its .bai index (e.g. "/path/to/*.bam*").
+        bams_ch = Channel.fromFilePairs(
+                params.bam_path,
+                size: 2,
+                flat: true
+            ) { file -> file.name.tokenize('.').first() }
+            .map { patient_id, bam, bai -> tuple(["patient_id": patient_id], bam, bai) }
 
-    metadata_ch = Channel.fromPath(params.sample_metadata)
-        .splitCsv(sep: "\t", header: true)
-        .map { row -> tuple(["sanger_id": row.sample], ["patient_id": row.sample_supplier_name])}
+        // Unwind each BAM back to paired-end reads with samtools.
+        combined_ch = BAM_TO_FASTQ(bams_ch).reads
+    }
+    else {
+        // FASTQ input mode: match paired FASTQs by Sanger id and look up the
+        // patient_id (PRID) from the sample metadata.
+        reads_ch = Channel.fromFilePairs(params.fastq_path, flat: true)
+        .map{ meta,read1,read2 -> tuple(["sanger_id": meta], read1, read2)}
 
-    combined_ch = reads_ch
-        .join(metadata_ch)
-        .map { sample_id, read1, read2, patient_id ->
-           tuple(sample_id + patient_id, read1, read2)
+        metadata_ch = Channel.fromPath(params.sample_metadata)
+            .splitCsv(sep: "\t", header: true)
+            .map { row -> tuple(["sanger_id": row.sample], ["patient_id": row.sample_supplier_name])}
+
+        combined_ch = reads_ch
+            .join(metadata_ch)
+            .map { sample_id, read1, read2, patient_id ->
+               tuple(sample_id + patient_id, read1, read2)
+            }
+    }
+
+    // Warn about samples that will be processed but are absent from every
+    // subcohort sample_list, and so dropped from all merged outputs. This is
+    // especially relevant in BAM mode, where the patient_id is derived from the
+    // filename and a naming mismatch would otherwise fail silently.
+    cohort_id_set = params.subcohorts.collectMany { subcohort_name, config ->
+        file(config.sample_list, checkIfExists: true).readLines()
+            .collect { it.trim().split('\t')[0].trim() }
+            .findAll { it }
+    } as Set
+
+    combined_ch
+        .map { meta, read1, read2 -> meta.patient_id }
+        .collect()
+        .subscribe { processed_ids ->
+            def dropped = processed_ids.unique().findAll { !cohort_id_set.contains(it) }.sort()
+            if (dropped) {
+                log.warn(
+                    "${dropped.size()} sample(s) will be processed but are not listed in any subcohort " +
+                    "sample_list, so they will be dropped from all merged outputs: ${dropped.join(', ')}"
+                )
+            }
         }
 
     STAR_FUSION(
