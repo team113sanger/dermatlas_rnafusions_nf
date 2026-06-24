@@ -46,7 +46,7 @@ Default reference file values supplied within the `nextflow.config` file can be 
 
 ## Usage 
 
-The recommended way to launch this pipeline is using a wrapper script (e.g. `bsub < my_wrapper.sh`) that submits nextflow as a job and records the version (**e.g.** `-r 0.3.0`)  and the `.config` parameter file supplied for a run.
+The recommended way to launch this pipeline is using a wrapper script (e.g. `bsub < my_wrapper.sh`) that submits nextflow as a job and records the version (**e.g.** `-r 0.4.0`)  and the `.config` parameter file supplied for a run.
 
 An example wrapper script:
 ```
@@ -67,7 +67,7 @@ module load /software/modules/ISG/singularity/3.11.4
 # Create a nextflow job that will spawn other jobs
 
 nextflow run 'https://github.com/team113sanger/dermatlas_rnafusions_nf' \
--r 0.3.0 \
+-r 0.4.0 \
 -c ${CONFIG} \
 -profile farm22 
 ```

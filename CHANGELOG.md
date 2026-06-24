@@ -4,6 +4,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-06-24
+### Added
+- BAM input mode: new `bam_path` parameter accepts a glob of indexed BAMs (and their
+  `.bai` indexes). A new `BAM_TO_FASTQ` process unwinds each BAM back to paired-end reads
+  with `samtools` before STAR-Fusion. The patient id (PRID) is derived from the BAM
+  filename (prefix before the first dot), so `sample_metadata` is not required in this mode.
+- Run reporting on `workflow.onComplete` via `lib/Utils.groovy` (`Utils.reportRun`). All
+  reporting is best-effort and never changes the pipeline's exit status:
+  - Optional Slack notifications on success/failure when `slack_webhook_url` is set
+    (run reference, pipeline version and duration; on failure also the failed process,
+    work directory and Nextflow log path).
+  - Optional append of a run record to the versioned-cohort-analysis-log API when
+    `analysis_log_api_url` is set, keyed by `cohort_slug` / `analysis_pipeline_slug` with
+    `sample_list_version` and pipeline version.
+  - `is_stub` parameter to skip all reporting for stub/test runs.
+
+
+### Changed
+- Exactly one input mode must now be set: the pipeline errors immediately if both or neither
+  of `fastq_path` / `bam_path` are provided. `fastq_path` no longer has a default value and
+  must be set explicitly when using FASTQ input.
+- Project home moved to GitHub (`github.com/team113sanger/dermatlas_rnafusions_nf`); manifest
+  `homePage` and the example wrapper scripts were updated accordingly.
+
 ## [0.3.0] - 2026-04-17
 ### Added
 - Update pipeline structure to allow multiple subcohort post-processing in one via a list structure.
