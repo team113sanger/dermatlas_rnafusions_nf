@@ -84,33 +84,37 @@ nextflow run main.nf -preview -with-dag flowchart.mmd -params-file tests/testdat
 
 ```mermaid
 flowchart TB
-    subgraph inputs [" "]
-    v0["Channel.fromFilePairs (FASTQ pairs)"]
-    v2["Channel.fromPath (sample_metadata)"]
-    vb["Channel.fromFilePairs (indexed BAMs)"]
-    v7["CTAT genome lib"]
-    v12["Channel.fromList (subcohorts)"]
+    subgraph " "
+    v0["Channel.fromFilePairs FASTQ pairs"]
+    v2["Channel.fromPath sample_metadata"]
+    vb["Channel.fromFilePairs indexed BAMs"]
+    v7["CTAT_GENOME_LIB"]
+    v12["Channel.fromList subcohorts"]
     end
-    subgraph FUSION_ANALYSIS [FUSION_ANALYSIS]
+    subgraph "FUSION_ANALYSIS [FUSION_ANALYSIS]"
     vbf(["BAM_TO_FASTQ"])
     v8(["STAR_FUSION"])
     v18(["FILTER_AND_MERGE_SAMPLES"])
     v19(["SUMMARY_PLOTS_AND_TABLES"])
+    v1(( ))
+    v9(( ))
     end
-    subgraph outputs [" "]
-    v20["merged table per subcohort"]
-    v21["summary plots per subcohort"]
+    subgraph " "
+    v20[" "]
+    v21[" "]
     end
-    v0 --> v8
-    v2 --> v8
+    v0 --> v1
+    v2 --> v1
+    v1 --> v8
     vb --> vbf
     vbf --> v8
     v7 --> v8
-    v8 --> v18
-    v12 --> v18
+    v8 --> v9
+    v12 --> v9
+    v9 --> v18
     v18 --> v19
-    v19 --> v20
     v19 --> v21
+    v19 --> v20
 ```
 
 ## Testing
