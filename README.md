@@ -16,6 +16,7 @@ In brief, the pipeline takes a set fastq files (or indexed BAMs) from a Dermatla
 - Aggregates the results of STAR-Fusion into a merged table per subcohort
 - Generates a report plotting fusion counts per sample and per gene for each subcohort
 
+
 ## Inputs 
 
 
@@ -41,11 +42,11 @@ subcohorts = [
 
 `ctat_lib` : path to a STAR-Fusion Trintity Cancer Transcriptome Analysis Toolkit (CTAT) genome build directory (a required input for STAR-Fusion)
 
-Default reference file values supplied within the `nextflow.config` file can be overided by adding them to a local `.config` file. An example complete params file `tests/test_data/test_params.json` is supplied within this repository for demonstation.
+Default reference file values supplied within the `nextflow.config` file can be overided by adding them to a local `.config` file. An example complete params file `tests/testdata/test_params.json` is supplied within this repository for demonstation.
 
 ## Usage 
 
-The recommended way to launch this pipeline is using a wrapper script (e.g. `bsub < my_wrapper.sh`) that submits nextflow as a job and records the version (**e.g.** `-r 0.2.2`)  and the `.config` parameter file supplied for a run.
+The recommended way to launch this pipeline is using a wrapper script (e.g. `bsub < my_wrapper.sh`) that submits nextflow as a job and records the version (**e.g.** `-r 0.3.0`)  and the `.config` parameter file supplied for a run.
 
 An example wrapper script:
 ```
@@ -65,7 +66,7 @@ module load /software/modules/ISG/singularity/3.11.4
 
 # Create a nextflow job that will spawn other jobs
 
-nextflow run 'https://gitlab.internal.sanger.ac.uk/DERMATLAS/analysis-methods/dermatlas_rnafusions_nf' \
+nextflow run 'https://github.com/team113sanger/dermatlas_rnafusions_nf' \
 -r 0.3.0 \
 -c ${CONFIG} \
 -profile farm22 
@@ -75,38 +76,41 @@ The pipeline can configured to run on either Sanger OpenStack secure-lustre inst
 `-profile secure_lustre` or `-profile farm22`. 
 
 ## Pipeline visualisation 
-Created using nextflow's in-built visualitation features.
-nextflow run main.nf -preview -with-dag flowchart.mmd -params-file tests/testdata/test_params.json 
+The flowchart below shows both supported input modes. Exactly one is used per run: either paired FASTQs matched to PRIDs via `sample_metadata`, or indexed BAMs that are unwound back to paired reads by `BAM_TO_FASTQ`. A base diagram can be regenerated with nextflow's in-built visualisation features:
+
+```
+nextflow run main.nf -preview -with-dag flowchart.mmd -params-file tests/testdata/test_params.json
+```
 
 ```mermaid
 flowchart TB
-    subgraph " "
-    v0["Channel.fromFilePairs"]
-    v2["Channel.fromPath"]
-    v7["CTAT_GENOME_LIB"]
-    v12["Channel.fromList"]
+    subgraph inputs [" "]
+    v0["Channel.fromFilePairs (FASTQ pairs)"]
+    v2["Channel.fromPath (sample_metadata)"]
+    vb["Channel.fromFilePairs (indexed BAMs)"]
+    v7["CTAT genome lib"]
+    v12["Channel.fromList (subcohorts)"]
     end
-    subgraph "FUSION_ANALYSIS [FUSION_ANALYSIS]"
+    subgraph FUSION_ANALYSIS [FUSION_ANALYSIS]
+    vbf(["BAM_TO_FASTQ"])
     v8(["STAR_FUSION"])
     v18(["FILTER_AND_MERGE_SAMPLES"])
     v19(["SUMMARY_PLOTS_AND_TABLES"])
-    v1(( ))
-    v9(( ))
     end
-    subgraph " "
-    v20[" "]
-    v21[" "]
+    subgraph outputs [" "]
+    v20["merged table per subcohort"]
+    v21["summary plots per subcohort"]
     end
-    v0 --> v1
-    v2 --> v1
+    v0 --> v8
+    v2 --> v8
+    vb --> vbf
+    vbf --> v8
     v7 --> v8
-    v1 --> v8
-    v8 --> v9
-    v12 --> v9
-    v9 --> v18
+    v8 --> v18
+    v12 --> v18
     v18 --> v19
-    v19 --> v21
     v19 --> v20
+    v19 --> v21
 ```
 
 ## Testing
@@ -118,13 +122,13 @@ nf-test test
 ```
 and individual tests with:
 ```
-nf-test test tests/modules/ascat_exomes.nf.test
+nf-test test tests/main.nf.test
 ```
 
 For faster testing of the flow of data through the pipeline **without running any of the tools involved**, stubs have been provided to mock the results of each succesful step.
 ```
 nextflow run main.nf \
--params-file params.json \
+-params-file tests/testdata/test_params.json \
 -c tests/nextflow.config \
 --stub-run
 ```
