@@ -1,7 +1,7 @@
 
 # Nextflow: RNA fusions pipeline
 
-RNA Fusion calling and post-processing for DERMATLAS can be run mostly with a two nextflow pipelines in a largely "set-and-forget" manner.This document contains an overview of how to configure and run these pipelines. A more detailed explanation of the pipeline inputs and requirements for running can be found within the dermatlas\_rna\_fusions.nf project [README](https://gitlab.internal.sanger.ac.uk/DERMATLAS/analysis-methods/dermatlas_rnafusions_nf/-/blob/develop/README.md?ref_type=heads). A more detailed explanation of how to run StarFusion manually and interpret its key results can be found here [DERMATLAS - Information about the STAR-Fusion version and references used for DERMATLAS analysis](/spaces/CAS/pages/68912708/DERMATLAS+-+Information+about+the+STAR-Fusion+version+and+references+used+for+DERMATLAS+analysis)
+RNA Fusion calling and post-processing for DERMATLAS can be run mostly with a two nextflow pipelines in a largely "set-and-forget" manner.This document contains an overview of how to configure and run these pipelines. A more detailed explanation of the pipeline inputs and requirements for running can be found within the dermatlas\_rna\_fusions.nf project [README](https://github.com/team113sanger/dermatlas_rnafusions_nf/blob/develop/README.md). A more detailed explanation of how to run StarFusion manually and interpret its key results can be found here [DERMATLAS - Information about the STAR-Fusion version and references used for DERMATLAS analysis](/spaces/CAS/pages/68912708/DERMATLAS+-+Information+about+the+STAR-Fusion+version+and+references+used+for+DERMATLAS+analysis)
 
 ## Workflow Overview:
 
@@ -11,13 +11,13 @@ RNA Fusion calling and post-processing for DERMATLAS can be run mostly with a tw
 
 ## Workflow Steps:
 
-First, we need to download the raw read data that we will use for the analysis. We will do this using HGIs irods-to-lustre tool:  a pipeline which can stage merge and unwind aligned seqeuncing data from irods. This workflow assumes you have setup your project using projectify and [Dermatlas analysis setup (v1.0.0](/spaces/CAS/pages/156434559/Dermatlas+analysis+setup+v1.0.0)). If this is the case should have an RNA project directory that looks something like this:
+First, we need the aligned read data for the analysis. The pipeline takes **indexed BAMs** as its default input, and staging these is handled as part of project setup (see [Dermatlas analysis setup (v1.0.0](/spaces/CAS/pages/156434559/Dermatlas+analysis+setup+v1.0.0))). If this is the case should have an RNA project directory that looks something like this:
 
 ```bash
 .
 ├── analysis
+├── bams
 ├── commands
-├── fastq
 ├── logs
 ├── metadata
 ├── resources -> /lustre/scratch127/casm/projects/dermatlas/resources
@@ -25,31 +25,13 @@ First, we need to download the raw read data that we will use for the analysis. 
 └── source_me.sh
 ```
 
-If you follow along the steps detailed in [Dermatlas analysis setup (v1.0.0)#StagingFastqs(RNA)](/spaces/CAS/pages/156434559/Dermatlas+analysis+setup+v1.0.0#Dermatlasanalysissetup(v1.0.0)-StagingFastqs(RNA))  then this should poplulate your fastq directory with paired end fastq data with names indicating each sample's Sanger ID. For example:
+If you follow along the steps detailed in [Dermatlas analysis setup (v1.0.0)#StagingFastqs(RNA)](/spaces/CAS/pages/156434559/Dermatlas+analysis+setup+v1.0.0#Dermatlasanalysissetup(v1.0.0)-StagingFastqs(RNA))  then the project `bam` directory will hold one indexed BAM (plus its `.bai`) per sample. The pipeline derives each sample's Dermatlas patient id (PRID) from the BAM filename, taking the prefix before the first dot, so `sample_metadata` is not required. For example:
 
 ```bash
-├── 7348STDY13944490_1.fastq.gz
-├── 7348STDY13944490_2.fastq.gz
-├── 7348STDY13944490.fastq.gz
-├── 7348STDY13944491_1.fastq.gz
-├── 7348STDY13944491_2.fastq.gz
-├── 7348STDY13944491.fastq.gz
-├── 7348STDY13944492_1.fastq.gz
-├── 7348STDY13944492_2.fastq.gz
-```
-
-The staging pipeline will have also populated several files within metadata . The key one for our purposes is `metadata/samples_noduplicates.csv`   
-which contains the mappings of Sanger sample IDs to Dermatlas PDIDs. For example
-
-7348STDY13944490 → PR62424a
-
-Once your fastq data is downloaded via irods-to-lustre, please ensure you cleanup the **crams,** **merged crams** and nextflow **work** directories created by the staging pipeline as these files are often large and won't be of any use for work downstream.
-
-```bash
-cd $PROJECT_DIR
-rm -rf merged_crams
-rm -rf crams
-rm -rf work
+├── PR62424a.sample.dupmarked.bam
+├── PR62424a.sample.dupmarked.bam.bai
+├── PR62425a.sample.dupmarked.bam
+├── PR62425a.sample.dupmarked.bam.bai
 ```
 
 Now, we can proceed with generating a configuration file for the RNA fusions pipeline run. This config file by default fetches a sample list created by dermatlas RNA ingestion. 
@@ -58,23 +40,39 @@ Now, we can proceed with generating a configuration file for the RNA fusions pip
 
 **Example config file:**
 
-```json
+```groovy
 params {
-    fastq_path = "${PROJECT_DIR}/fastq/**_{1,2}.fastq.gz"
-    sample_metadata = "${METADATA_DIR}/samples_noduplicates.tsv"
+    bam_path = "${PROJECT_DIR}/bam/**bam{,.bai}"
     outdir = "${ANALYSIS_DIR}/star-fusion"
-    sample_list = "/lustre/scratch127/casm/projects/dermatlas/base_dir/biosample_manifests/${STUDY}-analysed_one_samp_ppat_sampnames.tsv"
     ctat_lib = "/lustre/scratch125/casm/teams/team113/resources/references/dermatlas/star_fusion/GRCh38_gencode_v37_CTAT_lib_Mar012021.plug-n-play/ctat_genome_lib_build_dir"
     study_id = "${STUDY}"
+    subcohorts = [
+        "one_per_patient": [
+            sample_list: "/lustre/scratch127/casm/projects/dermatlas/base_dir/biosample_manifests/${STUDY}-analysed_one_samp_ppat_sampnames.tsv"
+        ],
+    ]
 }
 
 ```
+
+`bam_path` is a glob matching the staged BAMs **and** their `.bai` indexes. Each BAM is
+unwound back to paired-end reads before STAR-Fusion.
+
+:::{note}
+**Starting from FASTQs instead of BAMs**
+
+Indexed BAMs are the default input. If you instead have paired FASTQs, set `fastq_path`
+(a glob of the paired files, e.g. `"${PROJECT_DIR}/fastq/**_{1,2}.fastq.gz"`) in place of
+`bam_path`, together with `sample_metadata` pointing at `samples_noduplicates.tsv` to map
+Sanger ids to PRIDs. Provide **exactly one** of `bam_path` or `fastq_path` — the run errors
+if both or neither is set. See the project README for full details.
+:::
 
 **Launching the nextflow pipeline**
 
 Once you have your inputs you can prepare to launch the pipeline by modifying and saving this wrapper script in your project commands directory. You will need to update the path to your config file and your desired log file locations. 
 
-In this script the "`-r"`  option specifies which version of the pipeline you'd like to run. Normally you should select the latest version (currently **0.2.2**)
+In this script the "`-r"`  option specifies which version of the pipeline you'd like to run. Normally you should select the latest version (currently **0.4.0**)
 
 **Example file:**
 
@@ -102,7 +100,7 @@ nextflow pull "https://github.com/team113sanger/dermatlas_rnafusions_nf"
 nextflow run "https://github.com/team113sanger/dermatlas_rnafusions_nf" \
 -resume \
 -c "${CONFIG}" \
--r 0.2.2 \
+-r 0.4.0 \
 -profile farm22
 ```
 

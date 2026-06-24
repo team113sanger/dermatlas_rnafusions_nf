@@ -10,18 +10,23 @@ dermatlas_rnafusions_nf is a bioinformatics pipeline written in [Nextflow](http:
 
 ## Pipeline summary
 
-In brief, the pipeline takes a set fastq files from a Dermatlas cohort and
-- Matches fastq files to patient metadata (PRIDs)
+In brief, the pipeline takes a set fastq files (or indexed BAMs) from a Dermatlas cohort and
+- Matches fastq files to patient metadata (PRIDs), or unwinds indexed BAMs to paired-end reads with samtools (deriving the PRID from the filename)
 - Runs STAR-Fusion to identify RNA fusions
 - Aggregates the results of STAR-Fusion into a merged table per subcohort
 - Generates a report plotting fusion counts per sample and per gene for each subcohort
+
 
 ## Inputs 
 
 
 ### Cohort-dependent variables
-- `fastq_path`: path to a top level directory containing a set of paired fastq files(R1 and R2). The pipeline will search for all fastq files within this directory and subdirectories.
-- `sample_metadata`: path to a metadata file containing sample information. The metadata file should be a tab-separated file with the following columns:
+
+Provide **exactly one** input mode, either `fastq_path` or `bam_path`:
+
+- `fastq_path`: path to a top level directory containing a set of paired fastq files(R1 and R2). The pipeline will search for all fastq files within this directory and subdirectories. Requires `sample_metadata` to map Sanger ids to PRIDs.
+- `bam_path`: glob matching a set of indexed BAMs **and** their `.bai` index files, e.g. `"/path/to/bams/*.bam*"`. Each BAM is unwound back to paired-end reads with `samtools` before STAR-Fusion. The patient id (PRID) is derived directly from the BAM filename, taking the prefix before the first dot (`PD1001.sample.dupmarked.bam` -> `PD1001`), so `sample_metadata` is not required in this mode.
+- `sample_metadata`: path to a metadata file containing sample information (only used with `fastq_path`). The metadata file should be a tab-separated file with the following columns:
     - `sample`: Unique Sanger identifier for each sample
     - `sample_supplier_name`: Dermatlas sample identifier for a tumour (PRID)
 - `study_id`: Unique identifier for the study. Used as a prefix on all merged tables and summary plot filenames. **Required.**
@@ -37,11 +42,11 @@ subcohorts = [
 
 `ctat_lib` : path to a STAR-Fusion Trintity Cancer Transcriptome Analysis Toolkit (CTAT) genome build directory (a required input for STAR-Fusion)
 
-Default reference file values supplied within the `nextflow.config` file can be overided by adding them to a local `.config` file. An example complete params file `tests/test_data/test_params.json` is supplied within this repository for demonstation.
+Default reference file values supplied within the `nextflow.config` file can be overided by adding them to a local `.config` file. An example complete params file `tests/testdata/test_params.json` is supplied within this repository for demonstation.
 
 ## Usage 
 
-The recommended way to launch this pipeline is using a wrapper script (e.g. `bsub < my_wrapper.sh`) that submits nextflow as a job and records the version (**e.g.** `-r 0.2.2`)  and the `.config` parameter file supplied for a run.
+The recommended way to launch this pipeline is using a wrapper script (e.g. `bsub < my_wrapper.sh`) that submits nextflow as a job and records the version (**e.g.** `-r 0.4.0`)  and the `.config` parameter file supplied for a run.
 
 An example wrapper script:
 ```
@@ -61,8 +66,8 @@ module load /software/modules/ISG/singularity/3.11.4
 
 # Create a nextflow job that will spawn other jobs
 
-nextflow run 'https://gitlab.internal.sanger.ac.uk/DERMATLAS/analysis-methods/dermatlas_rnafusions_nf' \
--r 0.3.0 \
+nextflow run 'https://github.com/team113sanger/dermatlas_rnafusions_nf' \
+-r 0.4.0 \
 -c ${CONFIG} \
 -profile farm22 
 ```
@@ -71,18 +76,23 @@ The pipeline can configured to run on either Sanger OpenStack secure-lustre inst
 `-profile secure_lustre` or `-profile farm22`. 
 
 ## Pipeline visualisation 
-Created using nextflow's in-built visualitation features.
-nextflow run main.nf -preview -with-dag flowchart.mmd -params-file tests/testdata/test_params.json 
+The flowchart below shows both supported input modes. Exactly one is used per run: either paired FASTQs matched to PRIDs via `sample_metadata`, or indexed BAMs that are unwound back to paired reads by `BAM_TO_FASTQ`. A base diagram can be regenerated with nextflow's in-built visualisation features:
+
+```
+nextflow run main.nf -preview -with-dag flowchart.mmd -params-file tests/testdata/test_params.json
+```
 
 ```mermaid
 flowchart TB
     subgraph " "
-    v0["Channel.fromFilePairs"]
-    v2["Channel.fromPath"]
+    v0["Channel.fromFilePairs FASTQ pairs"]
+    v2["Channel.fromPath sample_metadata"]
+    vb["Channel.fromFilePairs indexed BAMs"]
     v7["CTAT_GENOME_LIB"]
-    v12["Channel.fromList"]
+    v12["Channel.fromList subcohorts"]
     end
     subgraph "FUSION_ANALYSIS [FUSION_ANALYSIS]"
+    vbf(["BAM_TO_FASTQ"])
     v8(["STAR_FUSION"])
     v18(["FILTER_AND_MERGE_SAMPLES"])
     v19(["SUMMARY_PLOTS_AND_TABLES"])
@@ -95,8 +105,10 @@ flowchart TB
     end
     v0 --> v1
     v2 --> v1
-    v7 --> v8
     v1 --> v8
+    vb --> vbf
+    vbf --> v8
+    v7 --> v8
     v8 --> v9
     v12 --> v9
     v9 --> v18
@@ -114,13 +126,13 @@ nf-test test
 ```
 and individual tests with:
 ```
-nf-test test tests/modules/ascat_exomes.nf.test
+nf-test test tests/main.nf.test
 ```
 
 For faster testing of the flow of data through the pipeline **without running any of the tools involved**, stubs have been provided to mock the results of each succesful step.
 ```
 nextflow run main.nf \
--params-file params.json \
+-params-file tests/testdata/test_params.json \
 -c tests/nextflow.config \
 --stub-run
 ```
