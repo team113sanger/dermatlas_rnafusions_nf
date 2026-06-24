@@ -38,7 +38,7 @@ If you follow along the steps detailed in [Dermatlas analysis setup (v1.0.0)#St
 ├── 7348STDY13944492_2.fastq.gz
 ```
 
-The staging pipeline will have also populated several files within metadata . The key one for our purposes is `metadata/samples_noduplicates.csv`   
+The staging pipeline will have also populated several files within metadata . The key one for our purposes is `metadata/samples_noduplicates.tsv`   
 which contains the mappings of Sanger sample IDs to Dermatlas PDIDs. For example
 
 7348STDY13944490 → PR62424a
@@ -58,14 +58,18 @@ Now, we can proceed with generating a configuration file for the RNA fusions pip
 
 **Example config file:**
 
-```json
+```groovy
 params {
     fastq_path = "${PROJECT_DIR}/fastq/**_{1,2}.fastq.gz"
     sample_metadata = "${METADATA_DIR}/samples_noduplicates.tsv"
     outdir = "${ANALYSIS_DIR}/star-fusion"
-    sample_list = "/lustre/scratch127/casm/projects/dermatlas/base_dir/biosample_manifests/${STUDY}-analysed_one_samp_ppat_sampnames.tsv"
     ctat_lib = "/lustre/scratch125/casm/teams/team113/resources/references/dermatlas/star_fusion/GRCh38_gencode_v37_CTAT_lib_Mar012021.plug-n-play/ctat_genome_lib_build_dir"
     study_id = "${STUDY}"
+    subcohorts = [
+        "one_per_patient": [
+            sample_list: "/lustre/scratch127/casm/projects/dermatlas/base_dir/biosample_manifests/${STUDY}-analysed_one_samp_ppat_sampnames.tsv"
+        ],
+    ]
 }
 
 ```
@@ -74,7 +78,7 @@ params {
 
 Once you have your inputs you can prepare to launch the pipeline by modifying and saving this wrapper script in your project commands directory. You will need to update the path to your config file and your desired log file locations. 
 
-In this script the "`-r"`  option specifies which version of the pipeline you'd like to run. Normally you should select the latest version (currently **0.2.2**)
+In this script the "`-r"`  option specifies which version of the pipeline you'd like to run. Normally you should select the latest version (currently **0.3.0**)
 
 **Example file:**
 
@@ -102,7 +106,7 @@ nextflow pull "https://github.com/team113sanger/dermatlas_rnafusions_nf"
 nextflow run "https://github.com/team113sanger/dermatlas_rnafusions_nf" \
 -resume \
 -c "${CONFIG}" \
--r 0.2.2 \
+-r 0.3.0 \
 -profile farm22
 ```
 
