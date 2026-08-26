@@ -25,38 +25,61 @@ First, we need the aligned read data for the analysis. The pipeline takes **inde
 └── source_me.sh
 ```
 
-If you follow along the steps detailed in [Dermatlas analysis setup (v1.0.0)#StagingFastqs(RNA)](/spaces/CAS/pages/156434559/Dermatlas+analysis+setup+v1.0.0#Dermatlasanalysissetup(v1.0.0)-StagingFastqs(RNA))  then the project `bam` directory will hold one indexed BAM (plus its `.bai`) per sample. The pipeline derives each sample's Dermatlas patient id (PRID) from the BAM filename, taking the prefix before the first dot, so `sample_metadata` is not required. For example:
+If you follow along the steps detailed in [Dermatlas analysis setup (v1.0.0)#StagingFastqs(RNA)](/spaces/CAS/pages/156434559/Dermatlas+analysis+setup+v1.0.0#Dermatlasanalysissetup(v1.0.0)-StagingFastqs(RNA))  then the project `bams` directory (exported as `${BAMS_DIR}`) will hold one subdirectory per sample, each containing an indexed BAM plus its `.bai`. The pipeline derives each sample's Dermatlas patient id (PRID) from the BAM filename, taking the prefix before the first dot, so `sample_metadata` is not required. For example:
 
 ```bash
-├── PR62424a.sample.dupmarked.bam
-├── PR62424a.sample.dupmarked.bam.bai
-├── PR62425a.sample.dupmarked.bam
-├── PR62425a.sample.dupmarked.bam.bai
+bams
+├── PR62424a
+│   ├── PR62424a.sample.dupmarked.bam
+│   └── PR62424a.sample.dupmarked.bam.bai
+└── PR62425a
+    ├── PR62425a.sample.dupmarked.bam
+    └── PR62425a.sample.dupmarked.bam.bai
 ```
 
-Now, we can proceed with generating a configuration file for the RNA fusions pipeline run. This config file by default fetches a sample list created by dermatlas RNA ingestion. 
+Now, we can proceed with generating a configuration file for the RNA fusions pipeline run. This config file fetches the sample lists created by dermatlas RNA ingestion. 
 
-**${STUDY}-analysed\_one\_samp\_ppat\_sampnames.tsv** which contains QC passing samples (one per patient). Variable such as ${PROJECT\_DIR} and ${STUDY} are stored within the project **source\_me.sh** file and interpreted by nextflow at runtime.You can modify the set of samples that are analysed by the pipeline by modifying this list
+One of them, **${SAMPLE\_LIST\_ONE\_PER\_PATIENT}**, contains QC passing samples (one per patient). Every project-specific location in the config comes from a variable exported by the project **source\_me.sh** (`${BAMS_DIR}`, `${ANALYSIS_DIR}`, `${SAMPLE_LIST_ONE_PER_PATIENT}`, ...) and is interpreted by nextflow at runtime, so the config file is identical across projects. You can modify the set of samples that are analysed by the pipeline by modifying the list that variable points at.
+
+The canonical, source-controlled copies of the config and wrapper script below live in the pipeline repository under `assets/`; they are injected into your project `commands/` directory during setup.
 
 **Example config file:**
 
 ```groovy
 params {
-    bam_path = "${PROJECT_DIR}/bam/**bam{,.bai}"
-    outdir = "${ANALYSIS_DIR}/star-fusion"
-    ctat_lib = "/lustre/scratch125/casm/teams/team113/resources/references/dermatlas/star_fusion/GRCh38_gencode_v37_CTAT_lib_Mar012021.plug-n-play/ctat_genome_lib_build_dir"
+    bam_path = "${BAMS_DIR}/**bam{,.bai}"
+    outdir   = "${ANALYSIS_DIR}/star-fusion"
+    ctat_lib = "/lustre/scratch127/casm/projects/dermatlas/references/star_fusion/GRCh38_gencode_v37_CTAT_lib_Mar012021.plug-n-play/ctat_genome_lib_build_dir"
     study_id = "${STUDY}"
     subcohorts = [
         "one_per_patient": [
-            sample_list: "/lustre/scratch127/casm/projects/dermatlas/base_dir/biosample_manifests/${STUDY}-analysed_one_samp_ppat_sampnames.tsv"
+            sample_list: "${SAMPLE_LIST_ONE_PER_PATIENT}"
         ],
+        "final_decision": [
+            sample_list: "${SAMPLE_LIST_FINAL_DECISION}"
+        ]
     ]
+
+    // Run reporting
+    analysis_log_api_url   = "${ANALYSIS_LOG_API_URL}"
+    sample_list_version    = "${SAMPLE_LIST_VERSION_FILE}"
+    cohort_slug            = "${COHORT_SLUG}"
+    analysis_pipeline_slug = "rnafusion_pipe"
 }
 
 ```
 
 `bam_path` is a glob matching the staged BAMs **and** their `.bai` indexes. Each BAM is
-unwound back to paired-end reads before STAR-Fusion.
+unwound back to paired-end reads before STAR-Fusion. The glob has to match *exactly* two
+files per sample: `**` descends into the per-sample subdirectories, and `{,.bai}` excludes
+the `.bam.bas` and `.bam.met.gz` files that sit alongside each BAM. A looser glob matches
+nothing usable and the pipeline finishes "successfully" having produced no output.
+
+:::{note}
+Nextflow does not treat an unset `${...}` variable in a config as an error - it substitutes
+the literal `[:]` and only warns. The `run_rna_fusions.sh` wrapper therefore checks up front
+that `source_me.sh` exported everything the config needs, and refuses to launch otherwise.
+:::
 
 :::{note}
 **Starting from FASTQs instead of BAMs**
@@ -88,8 +111,8 @@ In this script the "`-r"`  option specifies which version of the pipeline you'd
 #BSUB -eo <CHANGE_ME>/logs/rna_fusion%J.e
 
 
-source source_me.sh
-CONFIG="${PROJECT_DIR}/commands/rna_fusion.config"
+source "${PROJECT_DIR}/source_me.sh"
+CONFIG="${COMMANDS_DIR}/rna_fusions.config"
 
 # Load module dependencies
 module load nextflow-23.10.0
