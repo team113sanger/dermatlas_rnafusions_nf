@@ -39,7 +39,7 @@ bams
 
 Now, we can proceed with generating a configuration file for the RNA fusions pipeline run. This config file fetches the sample lists created by dermatlas RNA ingestion. 
 
-One of them, **${SAMPLE\_LIST\_ONE\_PER\_PATIENT}**, contains QC passing samples (one per patient). Every project-specific location in the config comes from a variable exported by the project **source\_me.sh** (`${BAMS_DIR}`, `${ANALYSIS_DIR}`, `${SAMPLE_LIST_ONE_PER_PATIENT}`, ...) and is interpreted by nextflow at runtime, so the config file is identical across projects. You can modify the set of samples that are analysed by the pipeline by modifying the list that variable points at.
+One of them, **${RNA\_SAMPLE\_LIST\_ONE\_PER\_PATIENT}**, contains QC passing samples (one per patient). Every project-specific location in the config comes from a variable exported by the project **source\_me.sh** (`${BAMS_DIR}`, `${ANALYSIS_DIR}`, `${RNA_SAMPLE_LIST_ONE_PER_PATIENT}`, ...) and is interpreted by nextflow at runtime, so the config file is identical across projects. You can modify the set of samples that are analysed by the pipeline by modifying the list that variable points at.
 
 The canonical, source-controlled copies of the config and wrapper script below live in the pipeline repository under `assets/`; they are injected into your project `commands/` directory during setup.
 
@@ -53,10 +53,10 @@ params {
     study_id = "${STUDY}"
     subcohorts = [
         "one_per_patient": [
-            sample_list: "${SAMPLE_LIST_ONE_PER_PATIENT}"
+            sample_list: "${RNA_SAMPLE_LIST_ONE_PER_PATIENT}"
         ],
         "final_decision": [
-            sample_list: "${SAMPLE_LIST_FINAL_DECISION}"
+            sample_list: "${RNA_SAMPLE_LIST_FINAL_DECISION}"
         ]
     ]
 
@@ -111,7 +111,7 @@ In this script the "`-r"`  option specifies which version of the pipeline you'd
 #BSUB -eo <CHANGE_ME>/logs/rna_fusion%J.e
 
 
-source "${PROJECT_DIR}/source_me.sh"
+source ./source_me.sh
 CONFIG="${COMMANDS_DIR}/rna_fusions.config"
 
 # Load module dependencies
@@ -130,8 +130,13 @@ nextflow run "https://github.com/team113sanger/dermatlas_rnafusions_nf" \
 If you called the script `run_rna_fusions.sh` then you'll be able to submit 
 
 ```bash
-bsub < run_rna_fusions.sh
+cd <your_project_dir>
+bsub < commands/run_rna_fusions.sh
 ```
+
+(Submit from the project directory so the job starts there and the wrapper finds
+`./source_me.sh`. It cannot work out where the project is from its own path: `bsub <` feeds
+the script to LSF on stdin, which spools it to a temporary file.)
 
 The bsub magic at the start of the wrapper script will send a nextflow "master job", which looks after all other jobs to the oversubscribed queue (where it can live in peace running for a long period without fear of termination). Nextflow will shortly start submitting jobs on your behalf to the relevant queues
 
@@ -140,7 +145,8 @@ The bsub magic at the start of the wrapper script will send a nextflow "master j
  There are several reasons the RNAfusions pipeline might fail including bugs in the pipeline; issues with LSF; or misconfiguration.  In most cases (especially when you suspect a farm/ LSF failure), simply re-submitting the pipeline with
 
 ```bash
-bsub < run_rna_fusions.sh
+cd <your_project_dir>
+bsub < commands/run_rna_fusions.sh
 ```
 
 will trigger the nextflow `-resume` directive and the pipeline will pick up where it left off.
