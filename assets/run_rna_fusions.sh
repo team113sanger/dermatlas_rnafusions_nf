@@ -37,7 +37,7 @@ require_env() {
 }
 
 require_env PROJECT_DIR COMMANDS_DIR ANALYSIS_DIR BAMS_DIR STUDY PROJECT COHORT_SLUG \
-            SAMPLE_LIST_ONE_PER_PATIENT SAMPLE_LIST_FINAL_DECISION \
+            RNA_SAMPLE_LIST_ONE_PER_PATIENT RNA_SAMPLE_LIST_FINAL_DECISION \
             SAMPLE_LIST_VERSION_FILE ANALYSIS_LOG_API_URL
 
 CONFIG="${COMMANDS_DIR}/rna_fusions.config"
@@ -59,7 +59,7 @@ module load /software/modules/ISG/singularity/3.11.4
 # Change to pipeline directory so .nextflow.log goes here
 cd "${PIPELINE_DIR}"
 
-nextflow pull "https://github.com/team113sanger/dermatlas_rnafusions_nf"
+nextflow pull "https://github.com/team113sanger/dermatlas_rnafusions_nf" -r "${REVISION}"
 
 nextflow run "https://github.com/team113sanger/dermatlas_rnafusions_nf" \
 -resume \

@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **Breaking (assets):** `rna_fusions.config` now takes project locations from `source_me.sh`
-  (`BAMS_DIR`, `SAMPLE_LIST_ONE_PER_PATIENT`, `SAMPLE_LIST_FINAL_DECISION`,
+  (`BAMS_DIR`, `RNA_SAMPLE_LIST_ONE_PER_PATIENT`, `RNA_SAMPLE_LIST_FINAL_DECISION`,
   `SAMPLE_LIST_VERSION_FILE`, `ANALYSIS_LOG_API_URL`) rather than building them from
   `PROJECT_DIR`. Needs a `source_me.sh` exporting the new variables.
 - `run_rna_fusions.sh` sources the project's own `./source_me.sh` (checking it exists first)

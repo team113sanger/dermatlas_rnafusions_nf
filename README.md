@@ -142,7 +142,7 @@ silently substituted with the literal `[:]`):
 | `ANALYSIS_DIR` | `outdir` and the execution report |
 | `STUDY`, `PROJECT` | `study_id`, and the Slack run id (`lib/Utils.groovy`) |
 | `COHORT_SLUG` | `cohort_slug` |
-| `SAMPLE_LIST_ONE_PER_PATIENT`, `SAMPLE_LIST_FINAL_DECISION` | the per-subcohort `sample_list` paths |
+| `RNA_SAMPLE_LIST_ONE_PER_PATIENT`, `RNA_SAMPLE_LIST_FINAL_DECISION` | the per-subcohort `sample_list` paths |
 | `SAMPLE_LIST_VERSION_FILE` | `sample_list_version` |
 | `ANALYSIS_LOG_API_URL` | `analysis_log_api_url` |
 | `SLACK_WEBHOOK_URL` | `slack_webhook_url`, read directly by `nextflow.config` via `System.getenv` (optional; unset simply disables Slack) |
