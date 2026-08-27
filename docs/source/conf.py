@@ -7,9 +7,9 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'dermatlas_rnafusions_nf'
-copyright = '2025-2026, Jamie Billington, Martin Del Castillo Velasco-Herrera'
-author = 'Jamie Billington, Martin Del Castillo Velasco-Herrera'
-release = '0.4.0'
+copyright = '2025-2026, Jamie Billington, Martin Del Castillo Velasco-Herrera, Ian Vermes'
+author = 'Jamie Billington, Martin Del Castillo Velasco-Herrera, Ian Vermes'
+release = '0.4.1'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
