@@ -40,7 +40,7 @@ require_env PROJECT_DIR COMMANDS_DIR ANALYSIS_DIR BAMS_DIR STUDY PROJECT COHORT_
             RNA_SAMPLE_LIST_ONE_PER_PATIENT RNA_SAMPLE_LIST_FINAL_DECISION \
             SAMPLE_LIST_VERSION_FILE ANALYSIS_LOG_API_URL
 
-CONFIG="${COMMANDS_DIR}/rna_fusions.config"
+CONFIG="${COMMANDS_DIR}/rnafusion_pipe/rna_fusions.config"
 REVISION="0.4.1"
 
 # Create isolated pipeline directory
