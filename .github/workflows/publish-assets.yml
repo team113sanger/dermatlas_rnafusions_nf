@@ -63,7 +63,7 @@ jobs:
           echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
           echo "Building bundle from '$source_ref' and publishing it as '$release_tag' (prerelease=$prerelease)."
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ steps.resolve.outputs.source_ref }}
 

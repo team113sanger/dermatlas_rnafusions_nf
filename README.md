@@ -137,4 +137,29 @@ nextflow run main.nf \
 --stub-run
 ```
 
+## Asset release bundles
 
+`assets/` is published to GitHub Releases as `projectify_asset_bundle.tar.gz` (plus a
+`.sha256` of it) by `.github/workflows/publish-assets.yml`, so `dermanager projectify` can
+fetch the files straight from the release CDN - no API call, no token, no rate limit:
+
+```
+https://github.com/team113sanger/dermatlas_rnafusions_nf/releases/download/<ref>/projectify_asset_bundle.tar.gz
+```
+
+| `<ref>` | Bundle contents | Updated |
+| --- | --- | --- |
+| `X.Y.Z` | `assets/` at that release tag | once, then immutable |
+| `master-latest` | `assets/` at the head of `master`, i.e. the latest released state | every push to `master` |
+| `develop-latest` | `assets/` at the head of `develop` | every push to `develop` |
+
+The two `-latest` refs are fixed tags on pre-releases: each push force-moves the tag onto the
+new HEAD and replaces the bundle in place, so the download URL never changes and always
+serves that branch's current assets. `releases/latest/download/...` is deliberately not used -
+it resolves only to the newest non-pre-release, so it cannot address the rolling channels.
+
+This repository is GitLab-primary and push-mirrored to GitHub, so the workflow is inert on
+GitLab CI and runs only once the mirror has synced (~1-2 min). Commit changes to it via
+GitLab, never GitHub. To publish a bundle for a ref that predates the workflow, run it by
+hand from the GitHub Actions tab (*Publish projectify asset bundle* -> *Run workflow*) with
+`ref` set to the tag or branch to build from.

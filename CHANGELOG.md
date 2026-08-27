@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+### Added
+- `.github/workflows/publish-assets.yml` publishes `assets/` to GitHub Releases as
+  `projectify_asset_bundle.tar.gz` (and a `.sha256` of it) on every push to `master` and
+  `develop` - as the rolling `master-latest` and `develop-latest` pre-releases - and on
+  every `X.Y.Z` tag. `dermanager projectify` fetches assets from those release URLs
+  instead of the GitHub API, which needs no token and is not rate limited. See
+  "Asset release bundles" in the README.
+
 ## [0.4.0] - 2026-06-24
 ### Added
 - BAM input mode: new `bam_path` parameter accepts a glob of indexed BAMs (and their
