@@ -105,4 +105,8 @@ jobs:
                 projectify_asset_bundle.tar.gz projectify_asset_bundle.tar.gz.sha256
             fi
           fi
+          # The GitLab push mirror prunes refs it does not own, so a mirror sync can delete
+          # the rolling tag; GitHub demotes the release to a draft when its tag disappears,
+          # which makes the download URL 404. Re-publish unconditionally to repair that.
+          gh release edit "$RELEASE_TAG" --draft=false --prerelease="$PRERELEASE"
           echo "https://github.com/$GITHUB_REPOSITORY/releases/download/$RELEASE_TAG/projectify_asset_bundle.tar.gz"
