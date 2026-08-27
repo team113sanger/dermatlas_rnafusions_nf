@@ -35,8 +35,11 @@ workflow FUSION_ANALYSIS{
     if (params.bam_path) {
         // BAM input mode: accept indexed BAMs and derive the patient_id from the
         // filename, taking the prefix before the first dot so trailing tags are
-        // dropped (e.g. PD1001.sample.dupmarked.bam -> PD1001). The glob should
-        // match both the BAM and its .bai index (e.g. "/path/to/*.bam*").
+        // dropped (e.g. PD1001.sample.dupmarked.bam -> PD1001). The glob must match
+        // the BAM and its .bai index and nothing else, because size: 2 silently
+        // drops any key that does not match exactly two files. Use
+        // "/path/to/bams/**bam{,.bai}": ** descends into per-sample subdirectories
+        // and the brace excludes sibling .bam.bas / .bam.met.gz files.
         bams_ch = Channel.fromFilePairs(
                 params.bam_path,
                 size: 2,

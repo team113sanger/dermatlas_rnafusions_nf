@@ -25,7 +25,9 @@ In brief, the pipeline takes a set fastq files (or indexed BAMs) from a Dermatla
 Provide **exactly one** input mode, either `fastq_path` or `bam_path`:
 
 - `fastq_path`: path to a top level directory containing a set of paired fastq files(R1 and R2). The pipeline will search for all fastq files within this directory and subdirectories. Requires `sample_metadata` to map Sanger ids to PRIDs.
-- `bam_path`: glob matching a set of indexed BAMs **and** their `.bai` index files, e.g. `"/path/to/bams/*.bam*"`. Each BAM is unwound back to paired-end reads with `samtools` before STAR-Fusion. The patient id (PRID) is derived directly from the BAM filename, taking the prefix before the first dot (`PD1001.sample.dupmarked.bam` -> `PD1001`), so `sample_metadata` is not required in this mode.
+- `bam_path`: glob matching a set of indexed BAMs **and** their `.bai` index files, e.g. `"/path/to/bams/**bam{,.bai}"`. Each BAM is unwound back to paired-end reads with `samtools` before STAR-Fusion. The patient id (PRID) is derived directly from the BAM filename, taking the prefix before the first dot (`PD1001.sample.dupmarked.bam` -> `PD1001`), so `sample_metadata` is not required in this mode.
+
+    The glob must match **exactly two files per sample** — BAMs are paired by `Channel.fromFilePairs(..., size: 2)`, which silently drops any sample matching one file or three or more. In the Dermatlas layout each sample lives in its own subdirectory alongside `.bam.bas` and `.bam.met.gz` files, so `**` is needed to descend into those subdirectories and the `{,.bai}` brace is needed to exclude the other siblings. A looser glob such as `"/path/to/bams/*.bam*"` matches nothing usable and produces a run that succeeds with no output.
 - `sample_metadata`: path to a metadata file containing sample information (only used with `fastq_path`). The metadata file should be a tab-separated file with the following columns:
     - `sample`: Unique Sanger identifier for each sample
     - `sample_supplier_name`: Dermatlas sample identifier for a tumour (PRID)
@@ -116,6 +118,38 @@ flowchart TB
     v19 --> v21
     v19 --> v20
 ```
+
+## Projectify integration
+
+In production this pipeline is launched from a Dermatlas *projectify directory* using the
+wrapper and config in [`assets/`](assets/). Those two files are copied into the project's
+`commands/` directory and take every project-specific location from the project's
+`source_me.sh`, so the pipeline stays agnostic about the directory layout it runs in.
+
+Submit from the project directory — `cd <project_dir> && bsub ... < commands/run_rna_fusions.sh` —
+so that the job starts there and the wrapper finds `./source_me.sh`. It cannot locate the project
+from `$BASH_SOURCE`, because `bsub <` spools the script from stdin.
+
+Consumed from `source_me.sh` (`assets/run_rna_fusions.sh` checks all of these are exported
+before launching nextflow — an unset variable is *not* a config error in Nextflow, it is
+silently substituted with the literal `[:]`):
+
+| Variable | Used for |
+| --- | --- |
+| `PROJECT_DIR` | the isolated `rnafusions_pipeline/` work directory |
+| `COMMANDS_DIR` | locating `rna_fusions.config` |
+| `BAMS_DIR` | `bam_path` |
+| `ANALYSIS_DIR` | `outdir` and the execution report |
+| `STUDY`, `PROJECT` | `study_id`, and the Slack run id (`lib/Utils.groovy`) |
+| `COHORT_SLUG` | `cohort_slug` |
+| `RNA_SAMPLE_LIST_ONE_PER_PATIENT`, `RNA_SAMPLE_LIST_FINAL_DECISION` | the per-subcohort `sample_list` paths |
+| `SAMPLE_LIST_VERSION_FILE` | `sample_list_version` |
+| `ANALYSIS_LOG_API_URL` | `analysis_log_api_url` |
+| `SLACK_WEBHOOK_URL` | `slack_webhook_url`, read directly by `nextflow.config` via `System.getenv` (optional; unset simply disables Slack) |
+
+Deliberately **not** taken from `source_me.sh`, because they belong to the pipeline rather
+than to the project: `analysis_pipeline_slug`, `ctat_lib`, the pipeline revision, the LSF job
+group, and the subcohort names.
 
 ## Testing
 

@@ -13,6 +13,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   instead of the GitHub API, which needs no token and is not rate limited. See
   "Asset release bundles" in the README.
 
+### Changed
+- **Breaking (assets):** `rna_fusions.config` now takes project locations from `source_me.sh`
+  (`BAMS_DIR`, `RNA_SAMPLE_LIST_ONE_PER_PATIENT`, `RNA_SAMPLE_LIST_FINAL_DECISION`,
+  `SAMPLE_LIST_VERSION_FILE`, `ANALYSIS_LOG_API_URL`) rather than building them from
+  `PROJECT_DIR`. Needs a `source_me.sh` exporting the new variables.
+- `run_rna_fusions.sh` sources the project's own `./source_me.sh` (checking it exists first)
+  and aborts up front, naming the variable, if one it needs is unexported.
+- The `farm22` profile no longer sets `PROJECT_DIR`-shaped defaults; `sample_metadata`,
+  `cohort_slug`, `analysis_log_api_url`, `sample_list_version` and `analysis_pipeline_slug`
+  are declared in the global `params` block instead.
+
+### Fixed
+- `bam_path` globbed `bam/` but the directory is `bams`, so it matched nothing and runs
+  completed "successfully" with no output.
+- `slack_webhook_url = "${SLACK_WEBHOOK_URL}"` in the asset config defeated the
+  `System.getenv(...) ?: null` fallback, yielding the truthy string `[:]` when unset.
+- The execution report landed in `./results/pipeline_info` relative to the launch directory
+  instead of under `outdir`.
+- `bam_path` glob advice in the README, `main.nf` and the user docs: the documented `*.bam*`
+  form matches nothing usable under `size: 2`.
+
 ## [0.4.0] - 2026-06-24
 ### Added
 - BAM input mode: new `bam_path` parameter accepts a glob of indexed BAMs (and their
