@@ -5,6 +5,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+- `run_rna_fusions.sh` now reports failures that happen *before* `nextflow run` starts.
+  An exit trap covers the whole setup phase - a missing environment variable, an
+  unwritable directory, a failed `module load`, a failed `nextflow pull`, or an LSF kill
+  (`bkill`, run/memory limit) - and re-emits the original exit status. Previously only
+  the pipeline's own `onComplete` handler reported, so a job that died during setup
+  failed silently; in a batch of submissions that is easy to miss.
+
+### Fixed
+- `nextflow pull` and `nextflow run` no longer write to the same log file. They shared
+  `NXF_LOG_FILE`, so Nextflow rotated one to `nextflow-<RUN_ID>.log.1`; the pull now
+  gets its own `nextflow-pull-<RUN_ID>.log`. The exported `NXF_LOG_FILE` still names the
+  run's log, which is the one reported on completion.
+- Run ids (and so log, trace and report filenames) no longer carry a stray trailing
+  hyphen after the cohort - `..._m25-myofribroma-_20260831T161209` became
+  `..._m25-myofribroma_20260831T161209`.
+
 
 ## [0.4.5] - 2026-08-31
 ### Added
