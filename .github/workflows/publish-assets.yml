@@ -85,28 +85,43 @@ jobs:
           PRERELEASE: ${{ steps.resolve.outputs.prerelease }}
         run: |
           set -euo pipefail
+          # A rolling channel updates its *assets*, never its tag.
+          #
+          # The download URL is addressed by the tag's NAME, not by the commit it points
+          # at, so there is nothing to gain by moving it - and a great deal to lose:
+          # `git hf release finish` ends with `git push --tags`, which pushes every local
+          # tag and is rejected outright ("already exists") by any tag that has moved on
+          # the remote since the contributor's clone last fetched it. That aborts the
+          # release after master, develop and the version tag have been pushed, leaving
+          # release/<version> stranded on the remote. Git offers no way for a clone to
+          # opt out reliably (negative fetch refspecs do not apply to automatic tag
+          # following), so the fix has to live here: create the tag once, then leave it
+          # alone forever.
+          notes="Assets from \`$SOURCE_REF\` (\`$GITHUB_SHA\`), published automatically for \`dermanager projectify\`."
           if [ "$PRERELEASE" = "true" ]; then
-            # Move the rolling tag onto the commit we just built from. Pushes made with
-            # GITHUB_TOKEN do not trigger workflows, so this cannot recurse.
-            git tag -f "$RELEASE_TAG"
-            git push -f origin "refs/tags/$RELEASE_TAG"
+            notes="Rolling bundle tracking the head of \`$SOURCE_REF\`, rebuilt $(date -u +'%Y-%m-%d %H:%M UTC').
+
+          $notes
+
+          The \`$RELEASE_TAG\` tag is a fixed anchor and deliberately does not move; only the
+          attached bundle is replaced. The commit this bundle was built from is the SHA above,
+          not the commit the tag points at."
           fi
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
             gh release upload "$RELEASE_TAG" \
               projectify_asset_bundle.tar.gz projectify_asset_bundle.tar.gz.sha256 --clobber
+            # The notes carry the provenance the tag no longer does, so refresh them too.
+            gh release edit "$RELEASE_TAG" --notes "$notes"
+          elif [ "$PRERELEASE" = "true" ]; then
+            # First publish of this channel: --target pins the new tag to this commit.
+            gh release create "$RELEASE_TAG" --target "$GITHUB_SHA" --prerelease \
+              --title "$RELEASE_TAG" --notes "$notes" \
+              projectify_asset_bundle.tar.gz projectify_asset_bundle.tar.gz.sha256
           else
-            notes="Assets from \`$SOURCE_REF\` (\`$GITHUB_SHA\`), published automatically for \`dermanager projectify\`."
-            if [ "$PRERELEASE" = "true" ]; then
-              notes="Rolling bundle tracking the head of \`$SOURCE_REF\`. $notes"
-              gh release create "$RELEASE_TAG" --prerelease --title "$RELEASE_TAG" --notes "$notes" \
-                projectify_asset_bundle.tar.gz projectify_asset_bundle.tar.gz.sha256
-            else
-              gh release create "$RELEASE_TAG" --title "$RELEASE_TAG" --notes "$notes" \
-                projectify_asset_bundle.tar.gz projectify_asset_bundle.tar.gz.sha256
-            fi
+            gh release create "$RELEASE_TAG" --title "$RELEASE_TAG" --notes "$notes" \
+              projectify_asset_bundle.tar.gz projectify_asset_bundle.tar.gz.sha256
           fi
-          # The GitLab push mirror prunes refs it does not own, so a mirror sync can delete
-          # the rolling tag; GitHub demotes the release to a draft when its tag disappears,
-          # which makes the download URL 404. Re-publish unconditionally to repair that.
+          # GitHub demotes a release to a draft if its tag ever disappears, which makes the
+          # download URL 404. Re-publishing unconditionally repairs that.
           gh release edit "$RELEASE_TAG" --draft=false --prerelease="$PRERELEASE"
           echo "https://github.com/$GITHUB_REPOSITORY/releases/download/$RELEASE_TAG/projectify_asset_bundle.tar.gz"
