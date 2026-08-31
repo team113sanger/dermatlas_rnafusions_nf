@@ -207,18 +207,14 @@ a commit of the updated version in every file that records it.
 
 ### One-off setup, per clone
 
-This step only needs to be done once per clone, to ensure `git hf` plays nicely
-with the rolling `-latest` tags on GitHub.
+Releases go through `git hf` (HubFlow). If it is not on your `PATH`, `module load git`.
+In a fresh clone, enable it once:
 
 ```bash
-git config --add remote.origin.fetch '^refs/tags/*-latest'  # stop fetching rolling tags
-git tag -l '*-latest' | xargs -r git tag -d                 # drop any already fetched
+git hf init   # writes this clone's hubflow branch/prefix config; the defaults are correct
 ```
 
-The GitHub CI moves the `master-latest` and `develop-latest` tags on every push,
-and `git` will not move an existing local tag. A stale copy breaks `git hf release` 
-with error messages like `would clobber existing tag` on `release start`,
-`already exists` on `release finish`.
+That is the only setup required.
 
 ### Steps
 
@@ -245,13 +241,19 @@ https://github.com/team113sanger/dermatlas_rnafusions_nf/releases/download/<ref>
 | `master-latest` | `assets/` at the head of `master`, i.e. the latest released state | every push to `master` |
 | `develop-latest` | `assets/` at the head of `develop` | every push to `develop` |
 
-The two `-latest` refs are fixed tags on pre-releases: each push force-moves the tag onto the
-new HEAD and replaces the bundle in place, so the download URL never changes and always
-serves that branch's current assets. `releases/latest/download/...` is deliberately not used -
-it resolves only to the newest non-pre-release, so it cannot address the rolling channels.
+The two `-latest` refs are fixed tags on pre-releases. Each push replaces the bundle attached
+to the tag, so the download URL never changes and always serves that branch's current assets.
 
-This repository is GitLab-primary and push-mirrored to GitHub, so the workflow is inert on
-GitLab CI and runs only once the mirror has synced (~1-2 min). Commit changes to it via
-GitLab, never GitHub. To publish a bundle for a ref that predates the workflow, run it by
-hand from the GitHub Actions tab (*Publish projectify asset bundle* -> *Run workflow*) with
-`ref` set to the tag or branch to build from.
+The tag is an **address for the bundle, not a pointer to the code it was built from**: it is
+created once and stays where it is, while the assets underneath it are replaced. Fetch these
+channels by URL (or `gh release download <ref>`), and read the source commit from the release
+notes. Do not use `master-latest` / `develop-latest` as a git revision - `nextflow run -r`,
+`git checkout`, or the release page's "Source code" links resolve them to the commit the tag
+was created at, not to the head of the branch. Use `X.Y.Z` tags for that.
+
+`releases/latest/download/...` is deliberately not used - it resolves only to the newest
+non-pre-release, so it cannot address the rolling channels.
+
+This repository is GitHub-primary. To publish a bundle for a ref that predates the workflow,
+run it by hand from the GitHub Actions tab (*Publish projectify asset bundle* -> *Run
+workflow*) with `ref` set to the tag or branch to build from.

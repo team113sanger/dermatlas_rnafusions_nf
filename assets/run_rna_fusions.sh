@@ -148,7 +148,7 @@ function set_run_id() {
   if [[ -n "${cohort}" ]]; then
     local sanitized_cohort
     sanitized_cohort=$(sanitize "${cohort}")
-    cohort="$(truncate_string "${sanitized_cohort}" 20)_"
+    cohort="$(truncate_string "${sanitized_cohort}" 40)_"
   fi
   echo "${study}${project}${cohort}${timestamp}"
 }
@@ -395,7 +395,7 @@ fi
 # Nextflow config for this run; git-clone runs point this at their own copy.
 CONFIG="${COMMANDS_DIR}/${PIPELINE_SLUG}/rna_fusions.config"
 # Pipeline version to run: a tag or commit hash.
-REVISION="0.4.6"
+REVISION="0.4.7"
 # Optional. If set, RUN_ID becomes <label>_<timestamp> instead of
 # <study>_<project>_<cohort>_<timestamp>.
 LABEL=""

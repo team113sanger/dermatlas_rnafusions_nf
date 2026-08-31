@@ -5,6 +5,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+## [0.4.7] - 2026-08-31
+### Changed
+- `run_rna_fusions.sh` now truncates the cohort slug to 40 characters when
+  creating the Nextflow RUN_ID. For similar cohort slugs this reduces the loss
+  of uniqueness.
+### Fixed
+- `git hf release finish` no longer fails on `! [rejected] develop-latest (already
+  exists)`. `publish-assets.yml` force-moved the rolling `master-latest` /
+  `develop-latest` tags on every push, and hubflow's `release finish` ends with
+  `git push --tags`, which pushes every local tag and is rejected by any that has moved
+  on the remote - aborting the release *after* master, develop and the version tag had
+  been pushed and leaving `release/<version>` stranded. The rolling tags are now created
+  once and never moved; only the bundle attached to them is replaced, and the release
+  notes carry the commit each bundle was built from. Download URLs are addressed by tag
+  name, so consumers are unaffected.
+  - The README's previous per-clone workaround was ineffective and has been corrected.
+
 
 ## [0.4.6] - 2026-08-31
 ### Added
