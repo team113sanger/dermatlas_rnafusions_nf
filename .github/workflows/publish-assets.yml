@@ -7,13 +7,13 @@
 # Consumer URLs (public, unauthenticated):
 #   https://github.com/<owner>/<repo>/releases/download/<ref>/projectify_asset_bundle.tar.gz
 #   https://github.com/<owner>/<repo>/releases/download/<ref>/projectify_asset_bundle.tar.gz.sha256
-# where <ref> is a release tag (X.Y.Z), or the rolling channels master-latest / develop-latest.
+# where <ref> is a release tag (X.Y.Z), or the rolling channels main-latest / develop-latest.
 name: Publish projectify asset bundle
 
 on:
   push:
     branches:
-      - master
+      - main
       - develop
     tags:
       - '[0-9]+.[0-9]+.[0-9]+'
@@ -23,7 +23,7 @@ on:
       ref:
         description: 'Tag (X.Y.Z) or branch to build the bundle from'
         required: true
-        default: master
+        default: main
 
 permissions:
   contents: write
@@ -92,7 +92,7 @@ jobs:
           # `git hf release finish` ends with `git push --tags`, which pushes every local
           # tag and is rejected outright ("already exists") by any tag that has moved on
           # the remote since the contributor's clone last fetched it. That aborts the
-          # release after master, develop and the version tag have been pushed, leaving
+          # release after main, develop and the version tag have been pushed, leaving
           # release/<version> stranded on the remote. Git offers no way for a clone to
           # opt out reliably (negative fetch refspecs do not apply to automatic tag
           # following), so the fix has to live here: create the tag once, then leave it

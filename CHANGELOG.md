@@ -5,6 +5,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.4.8] - 2026-09-01
+### Changed
+- The default branch has been renamed from `master` to `main`. `publish-assets.yml` now
+  triggers on pushes to `main` and publishes the rolling channel as `main-latest`; its
+  `workflow_dispatch` default ref is `main` too.
+
+
 ## [0.4.7] - 2026-08-31
 ### Changed
 - `run_rna_fusions.sh` now truncates the cohort slug to 40 characters when
