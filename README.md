@@ -238,7 +238,7 @@ https://github.com/team113sanger/dermatlas_rnafusions_nf/releases/download/<ref>
 | `<ref>` | Bundle contents | Updated |
 | --- | --- | --- |
 | `X.Y.Z` | `assets/` at that release tag | once, then immutable |
-| `master-latest` | `assets/` at the head of `master`, i.e. the latest released state | every push to `master` |
+| `main-latest` | `assets/` at the head of `main`, i.e. the latest released state | every push to `main` |
 | `develop-latest` | `assets/` at the head of `develop` | every push to `develop` |
 
 The two `-latest` refs are fixed tags on pre-releases. Each push replaces the bundle attached
@@ -247,7 +247,7 @@ to the tag, so the download URL never changes and always serves that branch's cu
 The tag is an **address for the bundle, not a pointer to the code it was built from**: it is
 created once and stays where it is, while the assets underneath it are replaced. Fetch these
 channels by URL (or `gh release download <ref>`), and read the source commit from the release
-notes. Do not use `master-latest` / `develop-latest` as a git revision - `nextflow run -r`,
+notes. Do not use `main-latest` / `develop-latest` as a git revision - `nextflow run -r`,
 `git checkout`, or the release page's "Source code" links resolve them to the commit the tag
 was created at, not to the head of the branch. Use `X.Y.Z` tags for that.
 
