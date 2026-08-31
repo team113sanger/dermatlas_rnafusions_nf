@@ -148,7 +148,7 @@ function set_run_id() {
   if [[ -n "${cohort}" ]]; then
     local sanitized_cohort
     sanitized_cohort=$(sanitize "${cohort}")
-    cohort="$(truncate_string "${sanitized_cohort}" 20)_"
+    cohort="$(truncate_string "${sanitized_cohort}" 40)_"
   fi
   echo "${study}${project}${cohort}${timestamp}"
 }
