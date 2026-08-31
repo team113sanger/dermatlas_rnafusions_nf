@@ -1,8 +1,8 @@
 # Publishes the contents of assets/ as a release bundle that `dermanager projectify`
 # downloads over the GitHub release CDN (no API call, no auth, no rate limit).
 #
-# This repository is GitLab-primary and push-mirrored to GitHub; this file is inert
-# on GitLab CI and only runs once mirrored. Commit it via GitLab, never GitHub.
+# This repository is GitHub-primary. It was previously GitLab-primary and push-mirrored
+# to GitHub; that mirror was retired and the GitLab project archived.
 #
 # Consumer URLs (public, unauthenticated):
 #   https://github.com/<owner>/<repo>/releases/download/<ref>/projectify_asset_bundle.tar.gz
