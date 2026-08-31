@@ -202,17 +202,23 @@ nextflow run main.nf \
 
 ## Cutting a release
 
+Cutting a new release requires a new semantic version tag, a changelog entry and
+a commit of the updated version in every file that records it. 
+
 ### One-off setup, per clone
 
+This step only needs to be done once per clone, to ensure `git hf` plays nicely
+with the rolling `-latest` tags on GitHub.
+
 ```bash
-git config --add remote.origin.fetch '+refs/tags/*:refs/tags/*'
+git config --add remote.origin.fetch '^refs/tags/*-latest'  # stop fetching rolling tags
+git tag -l '*-latest' | xargs -r git tag -d                 # drop any already fetched
 ```
 
-`.github/workflows/publish-assets.yml` re-points the rolling tags `master-latest` and
-`develop-latest` on every push to `master`/`develop`. Git treats tags as immutable and
-refuses to move an existing local one, so without the leading `+` (force) in the refspec
-`git hf` aborts its pre-flight fetch with `would clobber existing tag`. Release tags are
-immutable in practice, so forcing costs nothing.
+The GitHub CI moves the `master-latest` and `develop-latest` tags on every push,
+and `git` will not move an existing local tag. A stale copy breaks `git hf release` 
+with error messages like `would clobber existing tag` on `release start`,
+`already exists` on `release finish`.
 
 ### Steps
 
