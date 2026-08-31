@@ -5,6 +5,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+## [0.4.7] - 2026-08-31
+### Changed
+- `run_rna_fusions.sh` now truncates the cohort slug to 40 characters when
+  creating the Nextflow RUN_ID. For similar cohort slugs this reduces the loss
+  of uniqueness.
 ### Fixed
 - `git hf release finish` no longer fails on `! [rejected] develop-latest (already
   exists)`. `publish-assets.yml` force-moved the rolling `master-latest` /
