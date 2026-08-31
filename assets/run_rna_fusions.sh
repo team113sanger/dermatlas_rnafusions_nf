@@ -152,7 +152,7 @@ function set_run_id() {
 ############################
 #### RESERVED VARIABLES ####
 ############################
-_DEFAULT_PIPELINE_SLUG="rnafusions_pipeline"
+_DEFAULT_PIPELINE_SLUG="rnafusion_pipe"
 _DEFAULT_SOURCE_ME="./source_me.sh"
 # Environment variables checked after sourcing source_me.sh, by class:
 #  - pipeline-essential: always required to run the pipeline at all.
