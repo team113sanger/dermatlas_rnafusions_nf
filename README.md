@@ -202,14 +202,26 @@ nextflow run main.nf \
 
 ## Cutting a release
 
-Create a new release with `git hf release start <version>`.
+### One-off setup, per clone
 
-Update the semantic version in these files and commit the changes:
-- `assets/run_rna_fusions.sh`
-- `docs/source/conf.py`
-- `nextflow.config`
+```bash
+git config --add remote.origin.fetch '+refs/tags/*:refs/tags/*'
+```
 
-Then update the `CHANGELOG.md` and commit it. Finally `git hf release finish <version>`.
+`.github/workflows/publish-assets.yml` re-points the rolling tags `master-latest` and
+`develop-latest` on every push to `master`/`develop`. Git treats tags as immutable and
+refuses to move an existing local one, so without the leading `+` (force) in the refspec
+`git hf` aborts its pre-flight fetch with `would clobber existing tag`. Release tags are
+immutable in practice, so forcing costs nothing.
+
+### Steps
+
+1. `git hf release start <version>`
+2. `./.update-version.sh <version>` — sets the semantic version in every file that
+   records it (`assets/run_rna_fusions.sh`, `docs/source/conf.py`, `nextflow.config`).
+   Run `./.update-version.sh --help` for details. Commit the changes.
+3. Update `CHANGELOG.md` and commit it.
+4. `git hf release finish <version>`
 
 ## Asset release bundles
 
