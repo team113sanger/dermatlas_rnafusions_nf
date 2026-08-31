@@ -5,15 +5,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.4.8] - 2026-09-01
 ### Changed
 - The default branch has been renamed from `master` to `main`. `publish-assets.yml` now
   triggers on pushes to `main` and publishes the rolling channel as `main-latest`; its
-  `workflow_dispatch` default ref is `main` too. Consumers pinned to the `master-latest`
-  download URL must move to `main-latest` - see *Asset release bundles* in the README.
-  Existing clones need `git branch -m master main`, `git fetch origin --prune`,
-  `git branch -u origin/main main` and `git config hubflow.branch.master main`, plus
-  `git tag -d master-latest` so `git hf release finish`'s `git push --tags` does not
-  recreate the retired tag.
+  `workflow_dispatch` default ref is `main` too.
 
 
 ## [0.4.7] - 2026-08-31
