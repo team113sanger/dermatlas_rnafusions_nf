@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.4.5] - 2026-08-31
 ### Added
 - Explicit reporting opt-ins in `run_rna_fusions.sh`: `DERMATLAS_WEBSITE_LOGGING` and
   `DERMATLAS_SLACK_NOTIFICATIONS` (`"true"`/`"false"`). Environment checks are classed
@@ -35,6 +37,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Stub runs (`-stub-run`) never contact the website or Slack, regardless of opt-in.
 - `run_rna_fusions.sh` honours a `SOURCE_ME` override, and its `truncate` helper no
   longer shadows the coreutils binary.
+
+## [0.4.4] - Skipped
+Skipped to 0.4.5 to signify an integration focused release, with no new features or fixes in the pipeline itself.
+
+## [0.4.3] - Skipped
+Skipped to 0.4.5 to signify an integration focused release, with no new features or fixes in the pipeline itself.
+
+## [0.4.2] - Skipped
+Skipped to 0.4.5 to signify an integration focused release, with no new features or fixes in the pipeline itself.
+
 
 ## [0.4.1] - 2026-08-27
 ### Added
