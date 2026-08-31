@@ -130,26 +130,55 @@ Submit from the project directory — `cd <project_dir> && bsub ... < commands/r
 so that the job starts there and the wrapper finds `./source_me.sh`. It cannot locate the project
 from `$BASH_SOURCE`, because `bsub <` spools the script from stdin.
 
-Consumed from `source_me.sh` (`assets/run_rna_fusions.sh` checks all of these are exported
-before launching nextflow — an unset variable is *not* a config error in Nextflow, it is
-silently substituted with the literal `[:]`):
+### Reporting opt-ins
 
-| Variable | Used for |
+Two explicit toggles decide whether a run reports anywhere. They are defined and exported in
+the **OPT-IN REPORTING** section of `assets/run_rna_fusions.sh` (never by `source_me.sh`),
+default `"true"`, and are read both by the wrapper (to validate the environment before
+launch) and by the pipeline's `onComplete` handler (to decide whether to make the calls):
+
+| Toggle | `"true"` means |
 | --- | --- |
-| `PROJECT_DIR` | the isolated `rnafusions_pipeline/` work directory |
-| `COMMANDS_DIR` | locating `rna_fusions.config` |
-| `BAMS_DIR` | `bam_path` |
-| `ANALYSIS_DIR` | `outdir` and the execution report |
-| `STUDY`, `PROJECT` | `study_id`, and the Slack run id (`lib/Utils.groovy`) |
-| `COHORT_SLUG` | `cohort_slug` |
-| `RNA_SAMPLE_LIST_ONE_PER_PATIENT`, `RNA_SAMPLE_LIST_FINAL_DECISION` | the per-subcohort `sample_list` paths |
-| `SAMPLE_LIST_VERSION_FILE` | `sample_list_version` |
-| `ANALYSIS_LOG_API_URL` | `analysis_log_api_url` |
-| `SLACK_WEBHOOK_URL` | `slack_webhook_url`, read directly by `nextflow.config` via `System.getenv` (optional; unset simply disables Slack) |
+| `DERMATLAS_WEBSITE_LOGGING` | record the run in the Dermatlas website analysis log, via the `dermatlas-http cohort analysis-log` CLI (>= 0.6.1; found on `PATH`, else `module load dermatlas-http`) |
+| `DERMATLAS_SLACK_NOTIFICATIONS` | post a Slack message on completion (success or failure) |
+
+Git-clone users running custom `subcohorts` typically set both to `"false"` — no website
+cohort, sample-list version or Slack webhook is then needed. When a toggle is unset (e.g.
+`nextflow run` invoked directly, tests, CI) the pipeline treats it as opted out. Stub runs
+(`-stub-run`, or `--is_stub`) never contact the website or Slack regardless of the toggles.
+
+### Environment variables
+
+The single source of truth for the environment contract is the **MANUAL ENVIRONMENT
+OVERRIDES** section of [`assets/run_rna_fusions.sh`](assets/run_rna_fusions.sh): one
+commented-out `export` per variable, grouped by class, each with an example value and a
+note on what it feeds. In short:
+
+- **Pipeline-essential** — always required: project locations, study/project ids, the
+  subcohort sample lists.
+- **Website-essential** — required only when `DERMATLAS_WEBSITE_LOGGING="true"`.
+- **Slack-essential** — required only when `DERMATLAS_SLACK_NOTIFICATIONS="true"`.
+
+The wrapper validates each class before launching nextflow, because an unset variable is
+*not* a config error to Nextflow — it is silently substituted with the literal `[:]`.
+Reporting variables never appear in the Nextflow configs; the completion handler reads
+them from the environment.
 
 Deliberately **not** taken from `source_me.sh`, because they belong to the pipeline rather
-than to the project: `analysis_pipeline_slug`, `ctat_lib`, the pipeline revision, the LSF job
+than to the project: the opt-in toggles, `ctat_lib`, the pipeline revision, the LSF job
 group, and the subcohort names.
+
+### Run artifacts
+
+The wrapper owns run identity: one exported `RUN_ID` names the Nextflow log
+(`logs/nextflow-<RUN_ID>.log`), execution trace (`traces/execution_trace-<RUN_ID>.txt`)
+and execution report (`pipeline_info/execution_report-<RUN_ID>.html`), and is the run
+reference in Slack messages. When `DERMATLAS_WEBSITE_LOGGING="true"`, the log and trace
+are attached to the analysis-log record. Direct `nextflow run` invocations fall back to
+timestamp-named artifacts in the default locations.
+
+The mechanics — path ownership, fallbacks, and the `dermatlas-http` contract — are
+documented in [`REPORTING_INTEGRATION_GUIDE.md`](REPORTING_INTEGRATION_GUIDE.md).
 
 ## Testing
 
@@ -173,14 +202,26 @@ nextflow run main.nf \
 
 ## Cutting a release
 
-Create a new release with `git hf release start <version>`.
+### One-off setup, per clone
 
-Update the semantic version in these files and commit the changes:
-- `assets/run_rna_fusions.sh`
-- `docs/source/conf.py`
-- `nextflow.config`
+```bash
+git config --add remote.origin.fetch '+refs/tags/*:refs/tags/*'
+```
 
-Then update the `CHANGELOG.md` and commit it. Finally `git hf release finish <version>`.
+`.github/workflows/publish-assets.yml` re-points the rolling tags `master-latest` and
+`develop-latest` on every push to `master`/`develop`. Git treats tags as immutable and
+refuses to move an existing local one, so without the leading `+` (force) in the refspec
+`git hf` aborts its pre-flight fetch with `would clobber existing tag`. Release tags are
+immutable in practice, so forcing costs nothing.
+
+### Steps
+
+1. `git hf release start <version>`
+2. `./.update-version.sh <version>` — sets the semantic version in every file that
+   records it (`assets/run_rna_fusions.sh`, `docs/source/conf.py`, `nextflow.config`).
+   Run `./.update-version.sh --help` for details. Commit the changes.
+3. Update `CHANGELOG.md` and commit it.
+4. `git hf release finish <version>`
 
 ## Asset release bundles
 

@@ -6,6 +6,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.5] - 2026-08-31
+### Added
+- Explicit reporting opt-ins in `run_rna_fusions.sh`: `DERMATLAS_WEBSITE_LOGGING` and
+  `DERMATLAS_SLACK_NOTIFICATIONS` (`"true"`/`"false"`). Environment checks are classed
+  accordingly - opted-out runs need no cohort slug, sample-list version, API endpoint or
+  Slack webhook.
+- `run_rna_fusions.sh` now supports standalone (git-clone) execution alongside managed
+  projectify runs: a usage guide and table of contents at the top, a `MANUAL ENVIRONMENT
+  OVERRIDES` reference block documenting every variable, and a `SOURCE_ME="none"` mode
+  for running without a `source_me.sh`.
+- The Nextflow log, execution trace and execution report are harmonised: one `RUN_ID`
+  names all three (`nextflow-<RUN_ID>.log`, `execution_trace-<RUN_ID>.txt`,
+  `execution_report-<RUN_ID>.html`) and is the run reference in Slack messages.
+- Slack messages carry the sample-list version; failure messages name the Nextflow log.
+
+### Changed
+- **Breaking:** run reporting is opt-in via the toggles above; exporting
+  `SLACK_WEBHOOK_URL` alone no longer triggers Slack messages.
+- **Breaking:** website logging goes through the `dermatlas-http` CLI (>= 0.6.1) against
+  the `SELF_DESCRIBING_API` endpoint; `ANALYSIS_LOG_API_URL` is dropped. The Nextflow
+  log and execution trace are attached to the analysis-log record. Reporting failures
+  warn and never fail the run.
+- On-completion reporting variables are decoupled from the workflow's: `cohort_slug`,
+  `sample_list_version` and `slack_webhook_url` are gone from the configs (the
+  completion handler reads them from the environment), leaving the config files with
+  workflow inputs only.
+
+### Fixed
+- Stub runs (`-stub-run`) never contact the website or Slack, regardless of opt-in.
+- `run_rna_fusions.sh` honours a `SOURCE_ME` override, and its `truncate` helper no
+  longer shadows the coreutils binary.
+
+## [0.4.4] - Skipped
+Skipped to 0.4.5 to signify an integration focused release, with no new features or fixes in the pipeline itself.
+
+## [0.4.3] - Skipped
+Skipped to 0.4.5 to signify an integration focused release, with no new features or fixes in the pipeline itself.
+
+## [0.4.2] - Skipped
+Skipped to 0.4.5 to signify an integration focused release, with no new features or fixes in the pipeline itself.
+
+
 ## [0.4.1] - 2026-08-27
 ### Added
 - `.github/workflows/publish-assets.yml` publishes `assets/` to GitHub Releases as
