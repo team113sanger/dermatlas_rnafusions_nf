@@ -109,8 +109,9 @@ The environment itself can come from a `source_me.sh` or from the wrapper direct
    export RNA_SAMPLE_LIST_FINAL_DECISION="${PROJECT_DIR}/metadata/final_decision_sampnames.tsv"
    ```
 
-2. In the wrapper, under **OPT-IN REPORTING** set both toggles to `"false"`, and under **RUN CONFIGURATION**
-   point `CONFIG` at your `rna_fusions.config` and set `REVISION` to the release tag to run.
+2. In the wrapper, under **OPT-IN REPORTING** set `DERMATLAS_WEBSITE_LOGGING` and
+   `DERMATLAS_SLACK_NOTIFICATIONS` to `"false"`, and under **RUN CONFIGURATION** point `CONFIG` at your
+   `rna_fusions.config` and set `REVISION` to the release tag to run.
 
 3. Submit from the directory holding `source_me.sh`:
 
@@ -143,8 +144,9 @@ To override a single value without regenerating the file, uncomment just that va
    export RNA_SAMPLE_LIST_FINAL_DECISION="${PROJECT_DIR}/metadata/final_decision_sampnames.tsv"
    ```
 
-3. Under **OPT-IN REPORTING** set both toggles to `"false"`, and under **RUN CONFIGURATION** point `CONFIG` at
-   your `rna_fusions.config` and set `REVISION` to the release tag to run.
+3. Under **OPT-IN REPORTING** set `DERMATLAS_WEBSITE_LOGGING` and `DERMATLAS_SLACK_NOTIFICATIONS` to
+   `"false"`, and under **RUN CONFIGURATION** point `CONFIG` at your `rna_fusions.config` and set `REVISION`
+   to the release tag to run.
 
 4. Submit from anywhere - with `SOURCE_ME="none"` there is no `source_me.sh` to be beside:
 
@@ -163,6 +165,30 @@ pipeline code - local edits to the workflow are not picked up until released.
 
 The header of [`assets/run_rna_fusions.sh`](assets/run_rna_fusions.sh) maps every section and marks the
 `[edit]` blocks, which are the only places you should need to touch.
+
+### Toggles
+
+| Variable | Default | Effect when `false` |
+| --- | --- | --- |
+| `DERMATLAS_WEBSITE_LOGGING` | `true` | no analysis-log record is written to the Dermatlas website |
+| `DERMATLAS_SLACK_NOTIFICATIONS` | `true` | no Slack message on completion or failed launch |
+| `DERMATLAS_CLEANUP_WORK_DIR` | `true` | this run's work directory is kept instead of deleted |
+
+Work-directory cleanup only ever happens after a **successful** run; a failed one always keeps its work
+directory. Cleanup relies on `params.publish_dir_mode = 'copy'`, and only ever removes the `work/` directory
+the wrapper itself created.
+
+None are required. Each is resolved from the environment, most specific first - a shell export beats
+`source_me.sh`, which beats the default under **OPT-IN REPORTING** - so a single run can opt out without
+editing anything:
+
+```bash
+export DERMATLAS_CLEANUP_WORK_DIR=false
+bsub -o run.out -e run.err -J "rnafusion-<cohort>" < run_rna_fusions.sh
+```
+
+`true/false`, `yes/no`, `on/off` and `1/0` are all accepted in any case; anything else fails the launch
+immediately rather than part-way through.
 
 ## Pipeline visualisation 
 The flowchart below shows both supported input modes. Exactly one is used per run: either paired FASTQs matched to PRIDs via `sample_metadata`, or indexed BAMs that are unwound back to paired reads by `BAM_TO_FASTQ`. A base diagram can be regenerated with nextflow's in-built visualisation features:

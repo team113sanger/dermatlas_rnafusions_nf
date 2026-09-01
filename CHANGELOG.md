@@ -5,6 +5,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+- `DERMATLAS_CLEANUP_WORK_DIR` opts out of the work-directory cleanup that
+  `run_rna_fusions.sh` runs after a successful pipeline. Optional; unset means cleanup.
+### Changed
+- The wrapper's three toggles can now be set from the environment, most specific first:
+  a shell export beats `source_me.sh`, which beats the default in **OPT-IN REPORTING**.
+  `DERMATLAS_WEBSITE_LOGGING` and `DERMATLAS_SLACK_NOTIFICATIONS` were previously
+  ignored if present in the environment. All three accept `true/false`, `yes/no`,
+  `on/off`, `1/0` in any case; an unrecognised value now fails the launch.
 
 ## [0.4.8] - 2026-09-01
 ### Changed

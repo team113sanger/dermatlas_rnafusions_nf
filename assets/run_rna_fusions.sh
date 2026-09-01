@@ -12,7 +12,8 @@
 #   [skip] FAILURE REPORTING ............. exit trap for a failed launch
 #   [skip] RESERVED VARIABLES ............ the env-var classes checked below
 #   [edit] ENVIRONMENT SETUP ............. SOURCE_ME: a source_me.sh, or "none"
-#   [edit] OPT-IN REPORTING .............. website / Slack toggles
+#   [edit] OPT-IN REPORTING .............. website / Slack / work-dir toggles
+#                                          (defaults; the environment overrides)
 #   [edit] MANUAL ENVIRONMENT OVERRIDES .. commented exports, one per variable
 #   [skip] ENVIRONMENT VALIDATION
 #   [edit] RUN CONFIGURATION ............. CONFIG, REVISION, LABEL
@@ -59,14 +60,18 @@ function require_env() {
   fi
 }
 
-function require_bool() {
-  # Assert that the named variable is exactly "true" or "false".
+function normalize_bool() {
+  # Rewrite the named toggle in place as exactly "true" or "false". Permissive
+  # about spelling, but an unrecognised value is an error - a typo must not
+  # silently pick a side.
   local var="$1" val="${!1:-}"
-  case "${val}" in
-    true|false) ;;
+  case "${val,,}" in
+    true|t|yes|y|on|1)   printf -v "${var}" 'true' ;;
+    false|f|no|n|off|0)  printf -v "${var}" 'false' ;;
     *)
-      printf 'ERROR: %s must be exactly "true" or "false" (got: "%s").\n' "${var}" "${val}" >&2
-      printf 'Edit the OPT-IN REPORTING section of this script.\n' >&2
+      printf 'ERROR: %s must be a true/false value (got: "%s").\n' "${var}" "${val}" >&2
+      printf 'Accepted: true/false, yes/no, on/off, 1/0 (any case). Set it in the shell, in\n' >&2
+      printf 'source_me.sh, or edit the OPT-IN REPORTING section of this script.\n' >&2
       exit 1
       ;;
   esac
@@ -292,12 +297,17 @@ function cleanup_work_dir() {
 
 function on_pipeline_exit() {
   # EXIT trap for the `nextflow run` phase. Reports nothing - that is
-  # workflow.onComplete's job by then - and cleans up only on success.
+  # workflow.onComplete's job by then - and cleans up only on success, and only
+  # when the run has not opted out.
   local status="${1:-0}"
   trap - EXIT                      # never re-enter
   set +e                           # cleanup must not mask ${status}
   if (( status == 0 )); then
-    cleanup_work_dir
+    if [[ "${DERMATLAS_CLEANUP_WORK_DIR:-true}" == "true" ]]; then
+      cleanup_work_dir
+    else
+      printf 'Keeping work directory (DERMATLAS_CLEANUP_WORK_DIR=false): %s\n' "${NXF_WORK:-unset}"
+    fi
   fi
   exit "${status}"
 }
@@ -336,6 +346,11 @@ trap 'exit 129' HUP
 ############################
 _DEFAULT_PIPELINE_SLUG="rnafusion_pipe"
 _DEFAULT_SOURCE_ME="./source_me.sh"
+# The toggle values the submitting shell had, snapshotted before source_me.sh is
+# read so OPT-IN REPORTING can apply them over it.
+_ENV_WEBSITE_LOGGING="${DERMATLAS_WEBSITE_LOGGING:-}"
+_ENV_SLACK_NOTIFICATIONS="${DERMATLAS_SLACK_NOTIFICATIONS:-}"
+_ENV_CLEANUP_WORK_DIR="${DERMATLAS_CLEANUP_WORK_DIR:-}"
 # Environment variables checked after sourcing source_me.sh, by class:
 #  - pipeline-essential: always required to run the pipeline at all.
 #  - website-essential:  required only when DERMATLAS_WEBSITE_LOGGING=true.
@@ -362,16 +377,34 @@ fi
 #### OPT-IN REPORTING   ####
 ############################
 
-# Set to "false" to opt out. Opted-out (and stub) runs make no network calls.
-# Deliberately set after source_me.sh, so it can never override them.
-DERMATLAS_WEBSITE_LOGGING="true"        # "true"/"false": log this run to the Dermatlas website
-DERMATLAS_SLACK_NOTIFICATIONS="true"    # "true"/"false": send a Slack message on completion
-export DERMATLAS_WEBSITE_LOGGING DERMATLAS_SLACK_NOTIFICATIONS
+# Defaults for this script's toggles; edit them to change every run. Opted-out
+# (and stub) runs make no network calls.
+_DEFAULT_WEBSITE_LOGGING="true"        # log this run to the Dermatlas website
+_DEFAULT_SLACK_NOTIFICATIONS="true"    # send a Slack message on completion
+_DEFAULT_CLEANUP_WORK_DIR="true"       # delete this run's work dir after a successful run
 
-require_bool DERMATLAS_WEBSITE_LOGGING
-require_bool DERMATLAS_SLACK_NOTIFICATIONS
+# The environment overrides those defaults, most specific first: an export in the
+# submitting shell beats one in source_me.sh, which beats the default above - so a
+# one-off run can opt out without editing this file or a shared source_me.sh:
+#   export DERMATLAS_CLEANUP_WORK_DIR=false
+#   bsub ... < commands/<pipeline>/run_rna_fusions.sh
+# (_ENV_* is the shell's value, snapshotted before the source; the bare name holds
+# whatever source_me.sh went on to export.)
+DERMATLAS_WEBSITE_LOGGING="${_ENV_WEBSITE_LOGGING:-${DERMATLAS_WEBSITE_LOGGING:-${_DEFAULT_WEBSITE_LOGGING}}}"
+DERMATLAS_SLACK_NOTIFICATIONS="${_ENV_SLACK_NOTIFICATIONS:-${DERMATLAS_SLACK_NOTIFICATIONS:-${_DEFAULT_SLACK_NOTIFICATIONS}}}"
+DERMATLAS_CLEANUP_WORK_DIR="${_ENV_CLEANUP_WORK_DIR:-${DERMATLAS_CLEANUP_WORK_DIR:-${_DEFAULT_CLEANUP_WORK_DIR}}}"
+
+# Validated here rather than where they are used, so a typo fails the launch
+# immediately rather than hours later, and everything downstream (including the
+# pipeline's own onComplete handler) sees exactly "true" or "false".
+normalize_bool DERMATLAS_WEBSITE_LOGGING
+normalize_bool DERMATLAS_SLACK_NOTIFICATIONS
+normalize_bool DERMATLAS_CLEANUP_WORK_DIR
+export DERMATLAS_WEBSITE_LOGGING DERMATLAS_SLACK_NOTIFICATIONS DERMATLAS_CLEANUP_WORK_DIR
+
 printf 'Dermatlas website logging:      %s\n' "${DERMATLAS_WEBSITE_LOGGING}"
 printf 'Dermatlas Slack notifications:  %s\n' "${DERMATLAS_SLACK_NOTIFICATIONS}"
+printf 'Work directory cleanup:         %s\n' "${DERMATLAS_CLEANUP_WORK_DIR}"
 
 # Arm the failure trap's Slack channel: the toggles are now known and validated,
 # and source_me.sh has had its chance to export SLACK_WEBHOOK_URL.
@@ -404,6 +437,9 @@ _TRAP_CAN_SLACK=1
 #
 # Slack-essential (required only when DERMATLAS_SLACK_NOTIFICATIONS="true"):
 # export SLACK_WEBHOOK_URL=""        # e.g. "https://hooks.slack.com/services/T000/B000/XXXX"
+#
+# The DERMATLAS_* toggles do not belong here: OPT-IN REPORTING above has already
+# resolved them. Set them in your shell or source_me.sh, or edit their defaults.
 
 ################################
 #### ENVIRONMENT VALIDATION ####
