@@ -16,7 +16,7 @@
 #   [edit] MANUAL ENVIRONMENT OVERRIDES .. commented exports, one per variable
 #   [skip] ENVIRONMENT VALIDATION
 #   [edit] RUN CONFIGURATION ............. CONFIG, REVISION, LABEL
-#   [skip] FILE SYSTEM SETUP ............. RUN_ID, log/trace paths
+#   [skip] FILE SYSTEM SETUP ............. RUN_ID, log/trace/clone/cache paths
 #   [skip] EXECUTION OF THE PIPELINE
 #
 # Usage 1 - managed (projectify) runs. The dermanager-generated source_me.sh
@@ -270,6 +270,38 @@ function on_launcher_exit() {
   exit "${status}"
 }
 
+function cleanup_work_dir() {
+  # Delete this run's work directory - hundreds of GB, and publishDir has already
+  # copied out anything worth keeping (needs params.publish_dir_mode = 'copy').
+  # Callers must only do this on success: a failed run keeps its work dir.
+  local work="${NXF_WORK:-}"
+  # Only ever the directory this script created, never an inherited NXF_WORK.
+  if [[ "${work}" != "${PIPELINE_DIR}/work" ]]; then
+    printf 'NOTE: refusing to delete "%s" - it is not the work directory this script created.\n' "${work}" >&2
+    return 0
+  fi
+  [[ -d "${work}" ]] || return 0
+  printf 'Cleaning up work directory: %s\n' "${work}"
+  if rm -rf "${work}"; then
+    printf 'Work directory removed.\n'
+  else
+    printf 'NOTE: the work directory was not fully removed: %s\n' "${work}" >&2
+  fi
+  return 0
+}
+
+function on_pipeline_exit() {
+  # EXIT trap for the `nextflow run` phase. Reports nothing - that is
+  # workflow.onComplete's job by then - and cleans up only on success.
+  local status="${1:-0}"
+  trap - EXIT                      # never re-enter
+  set +e                           # cleanup must not mask ${status}
+  if (( status == 0 )); then
+    cleanup_work_dir
+  fi
+  exit "${status}"
+}
+
 ############################
 #### FAILURE REPORTING  ####
 ############################
@@ -413,6 +445,18 @@ export NXF_WORK="${PIPELINE_DIR}/work"
 export NXF_TEMP="${PIPELINE_DIR}/tmp"
 mkdir -p "${NXF_WORK}" "${NXF_TEMP}"
 
+# One git clone per revision. The shared default at ${NXF_HOME}/assets is checked
+# out in place by every pull and run, so parallel runs on different revisions
+# clobber each other, and its first pull of a newly published tag fails with
+# "Cannot find revision". Named clones/ to keep it distinct from assets/.
+export NXF_ASSETS="${PIPELINE_DIR}/clones/${REVISION}"
+mkdir -p "${NXF_ASSETS}"
+
+# Pinned, not defaulted: an LSF job inherits the submitter's profile, which may
+# already set this. Nextflow's default is <work-dir>/singularity, which the
+# cleanup trap deletes. Matches singularity.cacheDir in the farm22 profile.
+export NXF_SINGULARITY_CACHEDIR="/lustre/scratch127/casm/projects/dermatlas/singularity_images"
+
 # Run artifacts. Both are owned by this wrapper rather than source_me.sh, so they are
 # always set and need no require_env entry.
 if [[ -n "${LABEL:-}" ]]; then
@@ -451,8 +495,10 @@ NXF_LOG_FILE="${NXF_PULL_LOG_FILE}" \
   nextflow pull "https://github.com/team113sanger/dermatlas_rnafusions_nf" -r "${REVISION}"
 
 # Hand reporting over to the pipeline: from here on a failure is reported by
-# workflow.onComplete (lib/Utils.groovy), so the trap must not fire as well.
+# workflow.onComplete (lib/Utils.groovy), so the trap must not fire as well. Its
+# replacement reports nothing and only acts on success.
 trap - EXIT ERR INT TERM HUP
+trap 'on_pipeline_exit $?' EXIT
 
 NXF_LOG_FILE="${NXF_RUN_LOG_FILE}" \
   nextflow run "https://github.com/team113sanger/dermatlas_rnafusions_nf" \
