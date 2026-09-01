@@ -46,41 +46,269 @@ subcohorts = [
 
 Default reference file values supplied within the `nextflow.config` file can be overided by adding them to a local `.config` file. An example complete params file `tests/testdata/test_params.json` is supplied within this repository for demonstation.
 
-## Usage 
+## Usage
 
-The recommended way to launch this pipeline is using a wrapper script (e.g. `bsub < my_wrapper.sh`) that submits nextflow as a job and records the version (**e.g.** `-r 0.4.0`)  and the `.config` parameter file supplied for a run.
+Whether launched via the integrated website or manually, the pipeline is submitted the same way: `run_rna_fusions.sh` is piped into `bsub` as the
+job script.
 
-An example wrapper script:
-```
-#!/bin/bash
-#BSUB -q oversubscribed
-#BSUB -G team113-grp
-#BSUB -R "select[mem>8000] rusage[mem=8000] span[hosts=1]"
-#BSUB -M 8000
-#BSUB -oo rna_fusions_%J.o
-#BSUB -eo rna_fusions_%J.e
-
-CONFIG="/lustre/scratch125/casm/team113da/users/jb63/nf_germline_testing/rna_fusions.config"
-
-# Load module dependencies
-module load nextflow-23.10.0
-module load /software/modules/ISG/singularity/3.11.4
-
-# Create a nextflow job that will spawn other jobs
-
-nextflow run 'https://github.com/team113sanger/dermatlas_rnafusions_nf' \
--r 0.4.0 \
--c ${CONFIG} \
--profile farm22 
+```bash
+bsub -o "<stdout_log>" -e "<stderr_log>" \
+     -g "<lsf_job_group>" -J "<job_name>" \
+     < <dir>/run_rna_fusions.sh
 ```
 
-The pipeline can configured to run on either Sanger OpenStack secure-lustre instances or the Sanger farm22 HPC by changing the profile speicified:
-`-profile secure_lustre` or `-profile farm22`. 
+Queue, resource group and memory come from the `#BSUB` directives inside the wrapper, so `bsub` adds only the job
+name, job group and log paths. It is an ordinary bash script, so `bash run_rna_fusions.sh` also runs it in the
+foreground on any farm node - the `#BSUB` lines are inert comments; `bsub` only makes it a batch job. Either way
+it sources `./source_me.sh` relative to the directory it was started from.
+
+Nearly all runs are triggered from the [Dermatlas cohorts page](https://team113.sanger.ac.uk/dermatlas/cohorts/),
+which issues that command remotely against a project directory it has already provisioned - `source_me.sh`,
+`run_rna_fusions.sh` and `rna_fusions.config` are all written for you. There is nothing to do by hand.
+
+### Without the website
+
+Clone the repo and supply what the website otherwise provisions: a project directory, the pipeline's
+environment, and a couple of edits to the wrapper.
+
+Only `bams/` has a required shape: the config globs `${BAMS_DIR}/**bam{,.bai}` and pairs exactly two files per
+sample, so each sample needs its own sub-directory, and the PRID is the filename prefix before the first dot.
+See [Inputs](#cohort-dependent-variables) for why a looser glob silently produces an empty run.
+
+```
+<project_dir>/                                   # PROJECT_DIR
+├── bams/                                        # BAMS_DIR
+│   ├── PD1001/
+│   │   ├── PD1001.sample.dupmarked.bam          # matched -> PRID "PD1001"
+│   │   ├── PD1001.sample.dupmarked.bam.bai      # matched
+│   │   ├── PD1001.sample.dupmarked.bam.bas      # not matched by the glob
+│   │   └── PD1001.sample.dupmarked.bam.met.gz   # not matched by the glob
+│   └── PD1002/ ...
+├── metadata/
+│   ├── one_samp_ppat_sampnames.tsv              # one PRID per line
+│   └── final_decision_sampnames.tsv
+├── analysis/                                    # ANALYSIS_DIR; results land in analysis/star-fusion
+└── rnafusion_pipe/                              # created by the wrapper, not by you
+    ├── .lock                                    # see Reclaiming disk space
+    ├── .completed_successfully                  #   "
+    ├── work/                                    # deleted after a successful run
+    └── tmp/
+```
+
+The environment itself can come from a `source_me.sh` or from the wrapper directly. Both are supported; pick one.
+
+<details>
+<summary><strong>With a <code>source_me.sh</code></strong> - reusable across runs, and the shape the website generates</summary>
+
+1. Write `source_me.sh` beside the wrapper in `assets/`, which is where the wrapper looks by default. With
+   reporting opted out, these eight exports are the whole contract:
+
+   ```bash
+   export PROJECT_DIR="/lustre/.../6740_3016_MY_COHORT_RNA"
+   export COMMANDS_DIR="${PROJECT_DIR}/commands"
+   export ANALYSIS_DIR="${PROJECT_DIR}/analysis"
+   export BAMS_DIR="${PROJECT_DIR}/bams"
+   export STUDY="6740"     # prefixes output filenames, and the run id
+   export PROJECT="3016"   # part of the run id
+   export RNA_SAMPLE_LIST_ONE_PER_PATIENT="${PROJECT_DIR}/metadata/one_samp_ppat_sampnames.tsv"
+   export RNA_SAMPLE_LIST_FINAL_DECISION="${PROJECT_DIR}/metadata/final_decision_sampnames.tsv"
+   ```
+
+2. In the wrapper, under **OPT-IN REPORTING** set `DERMATLAS_WEBSITE_LOGGING` and
+   `DERMATLAS_SLACK_NOTIFICATIONS` to `"false"`, and under **RUN CONFIGURATION** point `CONFIG` at your
+   `rna_fusions.config` and set `REVISION` to the release tag to run.
+
+3. Submit from the directory holding `source_me.sh`:
+
+   ```bash
+   cd dermatlas_rnafusions_nf/assets
+   bsub -o run.out -e run.err -J "rnafusion-<cohort>" < run_rna_fusions.sh
+   ```
+
+To override a single value without regenerating the file, uncomment just that variable in the wrapper's
+**MANUAL ENVIRONMENT OVERRIDES** block - it is read after `source_me.sh`, so it wins.
+
+</details>
+
+<details>
+<summary><strong>By editing <code>run_rna_fusions.sh</code> directly</strong> - self-contained, nothing to track outside the script</summary>
+
+1. Under **ENVIRONMENT SETUP**, set `SOURCE_ME="none"` so the wrapper skips sourcing anything.
+
+2. Under **MANUAL ENVIRONMENT OVERRIDES**, uncomment and fill in the pipeline-essential exports. With reporting
+   opted out, these eight are the whole contract:
+
+   ```bash
+   export PROJECT_DIR="/lustre/.../6740_3016_MY_COHORT_RNA"
+   export COMMANDS_DIR="${PROJECT_DIR}/commands"
+   export ANALYSIS_DIR="${PROJECT_DIR}/analysis"
+   export BAMS_DIR="${PROJECT_DIR}/bams"
+   export STUDY="6740"     # prefixes output filenames, and the run id
+   export PROJECT="3016"   # part of the run id
+   export RNA_SAMPLE_LIST_ONE_PER_PATIENT="${PROJECT_DIR}/metadata/one_samp_ppat_sampnames.tsv"
+   export RNA_SAMPLE_LIST_FINAL_DECISION="${PROJECT_DIR}/metadata/final_decision_sampnames.tsv"
+   ```
+
+3. Under **OPT-IN REPORTING** set `DERMATLAS_WEBSITE_LOGGING` and `DERMATLAS_SLACK_NOTIFICATIONS` to
+   `"false"`, and under **RUN CONFIGURATION** point `CONFIG` at your `rna_fusions.config` and set `REVISION`
+   to the release tag to run.
+
+4. Submit from anywhere - with `SOURCE_ME="none"` there is no `source_me.sh` to be beside:
+
+   ```bash
+   bsub -o run.out -e run.err -J "rnafusion-<cohort>" < dermatlas_rnafusions_nf/assets/run_rna_fusions.sh
+   ```
+
+The same block is the annotated master list for either route - every variable with its purpose and an example
+value, including the website- and Slack-only ones you would add if you opted back in.
+
+</details>
+
+`rna_fusions.config` reads these same variables, so it needs no editing unless you want different `subcohorts`
+or `ctat_lib`. `REVISION` is fetched from GitHub, so your clone supplies the wrapper and config, not the
+pipeline code - local edits to the workflow are not picked up until released.
+
+The header of [`assets/run_rna_fusions.sh`](assets/run_rna_fusions.sh) maps every section and marks the
+`[edit]` blocks, which are the only places you should need to touch.
+
+### Toggles
+
+| Variable | Default | Effect when `false` |
+| --- | --- | --- |
+| `DERMATLAS_WEBSITE_LOGGING` | `true` | no analysis-log record is written to the Dermatlas website |
+| `DERMATLAS_SLACK_NOTIFICATIONS` | `true` | no Slack message on completion or failed launch |
+| `DERMATLAS_CLEANUP_WORK_DIR` | `true` | this run's work directory is kept instead of deleted |
+
+Work-directory cleanup only ever happens after a **successful** run; a failed one always keeps its work
+directory, and so does one stopped by `bkill` or an LSF limit - `DERMATLAS_CLEANUP_WORK_DIR` is not consulted
+unless the run succeeded. Cleanup relies on `params.publish_dir_mode = 'copy'`, and only ever removes the `work/` directory
+the wrapper itself created.
+
+None are required. Each is resolved from the environment, most specific first - a shell export beats
+`source_me.sh`, which beats the default under **OPT-IN REPORTING** - so a single run can opt out without
+editing anything:
+
+```bash
+export DERMATLAS_CLEANUP_WORK_DIR=false
+bsub -o run.out -e run.err -J "rnafusion-<cohort>" < run_rna_fusions.sh
+```
+
+`true/false`, `yes/no`, `on/off` and `1/0` are all accepted in any case; anything else fails the launch
+immediately rather than part-way through.
+
+### Reclaiming disk space
+
+`work/` and `tmp/` are the bulk of a cohort's disk and inode use, and are usually deleted by a separate clean-up
+script you run yourself rather than by the wrapper. So the wrapper leaves three dot-files in
+`${PROJECT_DIR}/<pipeline_slug>/` that let such a script tell a live run from a finished one - **including a run
+started by a different user, with no LSF tools involved**.
+
+<details>
+<summary><strong>The artefacts, and how to delete safely around them</strong></summary>
+
+| Artefact | Meaning |
+| --- | --- |
+| `.lock` | created once and **never removed**. Its presence says only that this directory uses the scheme. It never means a run is live. |
+| `.completed_successfully` | the last run finished successfully |
+| `.completed_with_error` | the last run reached a conclusion and failed - `bkill` and LSF limit kills included |
+
+Liveness is not a file. It is an exclusive `flock` held on `.lock` for as long as the wrapper owns the directory,
+and the kernel releases it when the process dies by any means, including `kill -9` and a node crash. So there is
+never a stale lock to clear - and `.lock` must never be deleted, because unlinking it lets the next run lock a
+fresh inode and exclude nobody.
+
+Both sentinels are cleared when a run starts and exactly one is written when it ends, so their absence is a
+truthful "no verdict for what is on disk right now".
+
+A second submission of a cohort while one is already running fails immediately with exit 75, naming the holder.
+That is deliberate: both runs would otherwise share one `work/`, and the first to finish would delete it under
+the second.
+
+#### Reading the state
+
+| State | `flock -n` | `.completed_successfully` | `.completed_with_error` |
+| --- | --- | --- | --- |
+| running now | busy | - | - |
+| succeeded | free | yes | - |
+| failed, incl. `bkill`ed | free | - | yes |
+| died mid-run (`kill -9`, node crash) | free | - | - |
+
+`flock -n <file> <command>` takes the lock, runs the command, and releases it - or, if something else already
+holds the lock, runs nothing at all and exits with the code given to `-E`. So a check and a deletion are the same
+one-liner with a different command on the end:
+
+```bash
+p="${PROJECT_DIR}/rnafusion_pipe"
+
+# 1. Is a run using this directory? `true` does nothing, so this only reports.
+if flock -n -E 75 "$p/.lock" true; then
+    echo "free - nothing is using $p"
+else
+    echo "RUNNING - held by:"; cat "$p/.lock"
+fi
+
+# 2. Move the work directory, but only if nothing is using it. The lock is held
+#    for as long as the mv takes, so a run cannot start underneath it.
+flock -n -E 75 "$p/.lock" mv "$p/work" /path/to/to_delete/
+echo $?   # 0 = moved.  75 = a run owns it, and nothing was touched.
+```
+
+Testing the lock needs only **read** permission on `.lock`, so this works against another user's running
+pipeline. Moving their `work/` afterwards still needs write permission on their pipeline directory.
+
+#### Writing the clean-up statement
+
+Take the lock across both the decision and the move, never test-then-move, and require `.lock` to exist first:
+on a directory that pre-dates this scheme `flock` would create one and report a live run as idle.
+
+```bash
+cd "${PROJECT_DIR}/.."
+mkdir -p to_delete
+
+find . -type d \( -name '*_pipe' -o -name '*_pipeline' \) -print0 |
+while IFS= read -r -d '' p; do
+    [[ -e "$p/.lock" ]] || { echo "SKIP (no .lock) $p"; continue; }
+
+    flock -n -E 75 "$p/.lock" bash -c '
+        p="$1"
+        # --- the policy: pick one ---------------------------------------
+        [[ -e "$p/.completed_successfully" ]] || exit 3    # succeeded only
+        # [[ -e "$p/.completed_with_error" ]] || exit 3    # failed only
+        # ! [[ -e "$p/.completed_successfully" || -e "$p/.completed_with_error" ]] || exit 3   # died mid-run
+        # (no test at all)                                 # anything not running
+        # ----------------------------------------------------------------
+        for d in work tmp; do
+            [[ -d "$p/$d" ]] || continue
+            # ${p#./} first: a leading "./" would turn into "._" and hide the result
+            mv -v "$p/$d" "to_delete/$(echo "${p#./}" | tr / _)_${d}"
+        done
+    ' _ "$p"
+
+    case $? in
+      0)  ;;
+      75) echo "SKIP (RUNNING)  $p" ;;
+      3)  echo "SKIP (policy)   $p" ;;
+      *)  echo "ERROR           $p" ;;
+    esac
+done
+# rm -rf to_delete/
+```
+
+Rules that keep this safe: **neither sentinel present means "died mid-run", never "succeeded"**; never unlink or
+replace `.lock`; and if the pipeline directory is on a filesystem not mounted with `flock` (Lustre `localflock`,
+NFS `local_lock=`) the lock is node-local and a sweep running elsewhere will not see it - the wrapper warns about
+this at launch, but a script that deletes data should check `findmnt -T "$p" -no FSTYPE,OPTIONS` itself and refuse.
+
+A lock that looks stale is a live file descriptor, not a leftover file: `lsof "$p/.lock"` names the process
+holding it. `nextflow run` inherits the descriptor, so an orphaned nextflow keeps its directory protected even
+after the wrapper is gone - which is the intended behaviour.
+
+</details>
 
 ## Pipeline visualisation 
 The flowchart below shows both supported input modes. Exactly one is used per run: either paired FASTQs matched to PRIDs via `sample_metadata`, or indexed BAMs that are unwound back to paired reads by `BAM_TO_FASTQ`. A base diagram can be regenerated with nextflow's in-built visualisation features:
 
-```
+```bash
 nextflow run main.nf -preview -with-dag flowchart.mmd -params-file tests/testdata/test_params.json
 ```
 
@@ -118,67 +346,6 @@ flowchart TB
     v19 --> v21
     v19 --> v20
 ```
-
-## Projectify integration
-
-In production this pipeline is launched from a Dermatlas *projectify directory* using the
-wrapper and config in [`assets/`](assets/). Those two files are copied into the project's
-`commands/` directory and take every project-specific location from the project's
-`source_me.sh`, so the pipeline stays agnostic about the directory layout it runs in.
-
-Submit from the project directory — `cd <project_dir> && bsub ... < commands/run_rna_fusions.sh` —
-so that the job starts there and the wrapper finds `./source_me.sh`. It cannot locate the project
-from `$BASH_SOURCE`, because `bsub <` spools the script from stdin.
-
-### Reporting opt-ins
-
-Two explicit toggles decide whether a run reports anywhere. They are defined and exported in
-the **OPT-IN REPORTING** section of `assets/run_rna_fusions.sh` (never by `source_me.sh`),
-default `"true"`, and are read both by the wrapper (to validate the environment before
-launch) and by the pipeline's `onComplete` handler (to decide whether to make the calls):
-
-| Toggle | `"true"` means |
-| --- | --- |
-| `DERMATLAS_WEBSITE_LOGGING` | record the run in the Dermatlas website analysis log, via the `dermatlas-http cohort analysis-log` CLI (>= 0.6.1; found on `PATH`, else `module load dermatlas-http`) |
-| `DERMATLAS_SLACK_NOTIFICATIONS` | post a Slack message on completion (success or failure) |
-
-Git-clone users running custom `subcohorts` typically set both to `"false"` — no website
-cohort, sample-list version or Slack webhook is then needed. When a toggle is unset (e.g.
-`nextflow run` invoked directly, tests, CI) the pipeline treats it as opted out. Stub runs
-(`-stub-run`, or `--is_stub`) never contact the website or Slack regardless of the toggles.
-
-### Environment variables
-
-The single source of truth for the environment contract is the **MANUAL ENVIRONMENT
-OVERRIDES** section of [`assets/run_rna_fusions.sh`](assets/run_rna_fusions.sh): one
-commented-out `export` per variable, grouped by class, each with an example value and a
-note on what it feeds. In short:
-
-- **Pipeline-essential** — always required: project locations, study/project ids, the
-  subcohort sample lists.
-- **Website-essential** — required only when `DERMATLAS_WEBSITE_LOGGING="true"`.
-- **Slack-essential** — required only when `DERMATLAS_SLACK_NOTIFICATIONS="true"`.
-
-The wrapper validates each class before launching nextflow, because an unset variable is
-*not* a config error to Nextflow — it is silently substituted with the literal `[:]`.
-Reporting variables never appear in the Nextflow configs; the completion handler reads
-them from the environment.
-
-Deliberately **not** taken from `source_me.sh`, because they belong to the pipeline rather
-than to the project: the opt-in toggles, `ctat_lib`, the pipeline revision, the LSF job
-group, and the subcohort names.
-
-### Run artifacts
-
-The wrapper owns run identity: one exported `RUN_ID` names the Nextflow log
-(`logs/nextflow-<RUN_ID>.log`), execution trace (`traces/execution_trace-<RUN_ID>.txt`)
-and execution report (`pipeline_info/execution_report-<RUN_ID>.html`), and is the run
-reference in Slack messages. When `DERMATLAS_WEBSITE_LOGGING="true"`, the log and trace
-are attached to the analysis-log record. Direct `nextflow run` invocations fall back to
-timestamp-named artifacts in the default locations.
-
-The mechanics — path ownership, fallbacks, and the `dermatlas-http` contract — are
-documented in [`REPORTING_INTEGRATION_GUIDE.md`](REPORTING_INTEGRATION_GUIDE.md).
 
 ## Testing
 
@@ -244,16 +411,3 @@ https://github.com/team113sanger/dermatlas_rnafusions_nf/releases/download/<ref>
 The two `-latest` refs are fixed tags on pre-releases. Each push replaces the bundle attached
 to the tag, so the download URL never changes and always serves that branch's current assets.
 
-The tag is an **address for the bundle, not a pointer to the code it was built from**: it is
-created once and stays where it is, while the assets underneath it are replaced. Fetch these
-channels by URL (or `gh release download <ref>`), and read the source commit from the release
-notes. Do not use `main-latest` / `develop-latest` as a git revision - `nextflow run -r`,
-`git checkout`, or the release page's "Source code" links resolve them to the commit the tag
-was created at, not to the head of the branch. Use `X.Y.Z` tags for that.
-
-`releases/latest/download/...` is deliberately not used - it resolves only to the newest
-non-pre-release, so it cannot address the rolling channels.
-
-This repository is GitHub-primary. To publish a bundle for a ref that predates the workflow,
-run it by hand from the GitHub Actions tab (*Publish projectify asset bundle* -> *Run
-workflow*) with `ref` set to the tag or branch to build from.
