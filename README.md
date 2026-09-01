@@ -87,7 +87,12 @@ See [Inputs](#cohort-dependent-variables) for why a looser glob silently produce
 ├── metadata/
 │   ├── one_samp_ppat_sampnames.tsv              # one PRID per line
 │   └── final_decision_sampnames.tsv
-└── analysis/                                    # ANALYSIS_DIR; results land in analysis/star-fusion
+├── analysis/                                    # ANALYSIS_DIR; results land in analysis/star-fusion
+└── rnafusion_pipe/                              # created by the wrapper, not by you
+    ├── .lock                                    # see Reclaiming disk space
+    ├── .completed_successfully                  #   "
+    ├── work/                                    # deleted after a successful run
+    └── tmp/
 ```
 
 The environment itself can come from a `source_me.sh` or from the wrapper directly. Both are supported; pick one.
@@ -175,7 +180,8 @@ The header of [`assets/run_rna_fusions.sh`](assets/run_rna_fusions.sh) maps ever
 | `DERMATLAS_CLEANUP_WORK_DIR` | `true` | this run's work directory is kept instead of deleted |
 
 Work-directory cleanup only ever happens after a **successful** run; a failed one always keeps its work
-directory. Cleanup relies on `params.publish_dir_mode = 'copy'`, and only ever removes the `work/` directory
+directory, and so does one stopped by `bkill` or an LSF limit - `DERMATLAS_CLEANUP_WORK_DIR` is not consulted
+unless the run succeeded. Cleanup relies on `params.publish_dir_mode = 'copy'`, and only ever removes the `work/` directory
 the wrapper itself created.
 
 None are required. Each is resolved from the environment, most specific first - a shell export beats
@@ -189,6 +195,115 @@ bsub -o run.out -e run.err -J "rnafusion-<cohort>" < run_rna_fusions.sh
 
 `true/false`, `yes/no`, `on/off` and `1/0` are all accepted in any case; anything else fails the launch
 immediately rather than part-way through.
+
+### Reclaiming disk space
+
+`work/` and `tmp/` are the bulk of a cohort's disk and inode use, and are usually deleted by a separate clean-up
+script you run yourself rather than by the wrapper. So the wrapper leaves three dot-files in
+`${PROJECT_DIR}/<pipeline_slug>/` that let such a script tell a live run from a finished one - **including a run
+started by a different user, with no LSF tools involved**.
+
+<details>
+<summary><strong>The artefacts, and how to delete safely around them</strong></summary>
+
+| Artefact | Meaning |
+| --- | --- |
+| `.lock` | created once and **never removed**. Its presence says only that this directory uses the scheme. It never means a run is live. |
+| `.completed_successfully` | the last run finished successfully |
+| `.completed_with_error` | the last run reached a conclusion and failed - `bkill` and LSF limit kills included |
+
+Liveness is not a file. It is an exclusive `flock` held on `.lock` for as long as the wrapper owns the directory,
+and the kernel releases it when the process dies by any means, including `kill -9` and a node crash. So there is
+never a stale lock to clear - and `.lock` must never be deleted, because unlinking it lets the next run lock a
+fresh inode and exclude nobody.
+
+Both sentinels are cleared when a run starts and exactly one is written when it ends, so their absence is a
+truthful "no verdict for what is on disk right now".
+
+A second submission of a cohort while one is already running fails immediately with exit 75, naming the holder.
+That is deliberate: both runs would otherwise share one `work/`, and the first to finish would delete it under
+the second.
+
+#### Reading the state
+
+| State | `flock -n` | `.completed_successfully` | `.completed_with_error` |
+| --- | --- | --- | --- |
+| running now | busy | - | - |
+| succeeded | free | yes | - |
+| failed, incl. `bkill`ed | free | - | yes |
+| died mid-run (`kill -9`, node crash) | free | - | - |
+
+`flock -n <file> <command>` takes the lock, runs the command, and releases it - or, if something else already
+holds the lock, runs nothing at all and exits with the code given to `-E`. So a check and a deletion are the same
+one-liner with a different command on the end:
+
+```bash
+p="${PROJECT_DIR}/rnafusion_pipe"
+
+# 1. Is a run using this directory? `true` does nothing, so this only reports.
+if flock -n -E 75 "$p/.lock" true; then
+    echo "free - nothing is using $p"
+else
+    echo "RUNNING - held by:"; cat "$p/.lock"
+fi
+
+# 2. Move the work directory, but only if nothing is using it. The lock is held
+#    for as long as the mv takes, so a run cannot start underneath it.
+flock -n -E 75 "$p/.lock" mv "$p/work" /path/to/to_delete/
+echo $?   # 0 = moved.  75 = a run owns it, and nothing was touched.
+```
+
+Testing the lock needs only **read** permission on `.lock`, so this works against another user's running
+pipeline. Moving their `work/` afterwards still needs write permission on their pipeline directory.
+
+#### Writing the clean-up statement
+
+Take the lock across both the decision and the move, never test-then-move, and require `.lock` to exist first:
+on a directory that pre-dates this scheme `flock` would create one and report a live run as idle.
+
+```bash
+cd "${PROJECT_DIR}/.."
+mkdir -p to_delete
+
+find . -type d \( -name '*_pipe' -o -name '*_pipeline' \) -print0 |
+while IFS= read -r -d '' p; do
+    [[ -e "$p/.lock" ]] || { echo "SKIP (no .lock) $p"; continue; }
+
+    flock -n -E 75 "$p/.lock" bash -c '
+        p="$1"
+        # --- the policy: pick one ---------------------------------------
+        [[ -e "$p/.completed_successfully" ]] || exit 3    # succeeded only
+        # [[ -e "$p/.completed_with_error" ]] || exit 3    # failed only
+        # ! [[ -e "$p/.completed_successfully" || -e "$p/.completed_with_error" ]] || exit 3   # died mid-run
+        # (no test at all)                                 # anything not running
+        # ----------------------------------------------------------------
+        for d in work tmp; do
+            [[ -d "$p/$d" ]] || continue
+            # ${p#./} first: a leading "./" would turn into "._" and hide the result
+            mv -v "$p/$d" "to_delete/$(echo "${p#./}" | tr / _)_${d}"
+        done
+    ' _ "$p"
+
+    case $? in
+      0)  ;;
+      75) echo "SKIP (RUNNING)  $p" ;;
+      3)  echo "SKIP (policy)   $p" ;;
+      *)  echo "ERROR           $p" ;;
+    esac
+done
+# rm -rf to_delete/
+```
+
+Rules that keep this safe: **neither sentinel present means "died mid-run", never "succeeded"**; never unlink or
+replace `.lock`; and if the pipeline directory is on a filesystem not mounted with `flock` (Lustre `localflock`,
+NFS `local_lock=`) the lock is node-local and a sweep running elsewhere will not see it - the wrapper warns about
+this at launch, but a script that deletes data should check `findmnt -T "$p" -no FSTYPE,OPTIONS` itself and refuse.
+
+A lock that looks stale is a live file descriptor, not a leftover file: `lsof "$p/.lock"` names the process
+holding it. `nextflow run` inherits the descriptor, so an orphaned nextflow keeps its directory protected even
+after the wrapper is gone - which is the intended behaviour.
+
+</details>
 
 ## Pipeline visualisation 
 The flowchart below shows both supported input modes. Exactly one is used per run: either paired FASTQs matched to PRIDs via `sample_metadata`, or indexed BAMs that are unwound back to paired reads by `BAM_TO_FASTQ`. A base diagram can be regenerated with nextflow's in-built visualisation features:

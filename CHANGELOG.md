@@ -14,12 +14,10 @@ changelog entry to indicate the impact of the change:
   may cause the same input data to produce different scientific outputs or
   results, including changes to algorithms, tolerances, randomisation,
   scientific functionality, or output formats.
-
 - **ROBUSTNESS** - a fix or improvement to the pipeline's scientific
   functionality that improves correctness, reliability, or the range of inputs
   that can be processed, without intentionally changing the scientific results
   of an equivalent successful analysis.
-
 - **INTEGRATION** - a change to how the pipeline integrates with other systems
   or infrastructure, without changing its scientific processing or results.
 
@@ -28,12 +26,30 @@ changelog entry to indicate the impact of the change:
 ### Added
 - **INTEGRATION** - `DERMATLAS_CLEANUP_WORK_DIR` opts out of the work-directory cleanup that
   `run_rna_fusions.sh` runs after a successful pipeline. Optional; unset means cleanup.
+- **INTEGRATION** - `run_rna_fusions.sh` now leaves three artefacts in the pipeline directory
+  so that a separate clean-up script can tell a live run from a finished one, including one started
+  by another user and without LSF: `.lock` (an exclusive `flock` is held on it for the life of
+  the run; the file is created once and never removed) plus `.completed_successfully` /
+  `.completed_with_error`, cleared at launch and one written at exit. The filename is the
+  state; the contents are an audit trail. See "Reclaiming disk space" in the README.
+
 ### Changed
+- **INTEGRATION** - a `bkill` during `nextflow run` no longer deletes that run's work directory,
+  whatever `DERMATLAS_CLEANUP_WORK_DIR` is set to. A killed run is now a failed run, and cleanup
+  only ever happens after a success, so the toggle is not consulted at all. Previously the
+  INT/TERM/HUP traps were dropped at the handover to `nextflow run` and never reinstated, so
+  an LSF kill reached the EXIT trap with `$?` of 0 - bash runs the EXIT trap for an untrapped
+  fatal signal, and `$?` is then the last *completed* command's status - and the run was
+  treated as successful.
 - **INTEGRATION** - The wrapper's three toggles can now be set from the environment, most specific first:
   a shell export beats `source_me.sh`, which beats the default in **OPT-IN REPORTING**.
   `DERMATLAS_WEBSITE_LOGGING` and `DERMATLAS_SLACK_NOTIFICATIONS` were previously
   ignored if present in the environment. All three accept `true/false`, `yes/no`,
   `on/off`, `1/0` in any case; an unrecognised value now fails the launch.
+- **INTEGRATION** - two concurrent runs of the same cohort are now prevented rather than
+  silently corrupting each other. They shared one `${PIPELINE_DIR}/work`, and the first to
+  finish deleted it under the second; the second submission now fails immediately with exit
+  75, naming the run that holds the directory.
 
 ## [0.4.8] - 2026-09-01
 ### Changed
@@ -44,7 +60,7 @@ changelog entry to indicate the impact of the change:
 
 ## [0.4.7] - 2026-08-31
 ### Changed
-- **ROBUSTNESS** - `run_rna_fusions.sh` now truncates the cohort slug to 40 characters when
+- **INTEGRATION** - `run_rna_fusions.sh` now truncates the cohort slug to 40 characters when
   creating the Nextflow RUN_ID. For similar cohort slugs this reduces the loss
   of uniqueness.
 ### Fixed
@@ -62,7 +78,7 @@ changelog entry to indicate the impact of the change:
 
 ## [0.4.6] - 2026-08-31
 ### Added
-- **ROBUSTNESS** - `run_rna_fusions.sh` now reports failures that happen *before* `nextflow run` starts.
+- **INTEGRATION** - `run_rna_fusions.sh` now reports failures that happen *before* `nextflow run` starts.
   An exit trap covers the whole setup phase - a missing environment variable, an
   unwritable directory, a failed `module load`, a failed `nextflow pull`, or an LSF kill
   (`bkill`, run/memory limit) - and re-emits the original exit status. Previously only
@@ -108,7 +124,7 @@ changelog entry to indicate the impact of the change:
 
 ### Fixed
 - **INTEGRATION** - Stub runs (`-stub-run`) never contact the website or Slack, regardless of opt-in.
-- **ROBUSTNESS** - `run_rna_fusions.sh` honours a `SOURCE_ME` override, and its `truncate` helper no
+- **INTEGRATION** - `run_rna_fusions.sh` honours a `SOURCE_ME` override, and its `truncate` helper no
   longer shadows the coreutils binary.
 
 ## [0.4.4] - Skipped
