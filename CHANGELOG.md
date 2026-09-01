@@ -23,6 +23,8 @@ changelog entry to indicate the impact of the change:
 
 
 ## [Unreleased]
+
+## [0.4.9] - 2026-09-01
 ### Added
 - **INTEGRATION** - `DERMATLAS_CLEANUP_WORK_DIR` opts out of the work-directory cleanup that
   `run_rna_fusions.sh` runs after a successful pipeline. Optional; unset means cleanup.
