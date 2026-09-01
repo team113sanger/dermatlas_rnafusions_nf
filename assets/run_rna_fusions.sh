@@ -185,7 +185,7 @@ function launcher_failure_details() {
   printf 'Cohort: %s\n' "$(launcher_failure_ref)"
   printf 'Study: %s\n' "${STUDY:-unset}"
   printf 'Project: %s\n' "${PROJECT:-unset}"
-  printf 'Pipeline: %s\n' "${PIPELINE_SLUG:-unset}"
+  printf 'Pipeline: %s\n' "${PIPELINE_SLUG:-unset}${REVISION:+ (${REVISION})}"
   printf 'Exit status: %s\n' "${status}"
   if [[ -n "${_LAST_ERR_CMD:-}" ]]; then
     printf 'Failed command (line %s): %s\n' "${_LAST_ERR_LINE:-?}" "${_LAST_ERR_CMD}"
