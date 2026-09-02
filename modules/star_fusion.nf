@@ -28,6 +28,10 @@ process STAR_FUSION {
     --FusionInspector validate \
     --examine_coding_effect \
     --denovo_reconstruct
+
+    # FusionInspector leaves its working and checkpoint directories inside
+
+    rm -rf ${meta.patient_id}/FusionInspector-validate/fi_workdir ${meta.patient_id}/FusionInspector-validate/chckpts_dir
     """
     stub: 
     """

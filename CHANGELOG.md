@@ -22,7 +22,20 @@ changelog entry to indicate the impact of the change:
   or infrastructure, without changing its scientific processing or results.
 
 
-## [Unreleased]
+## [0.4.10] - 2026-09-02
+### Changed
+- **INTEGRATION** - `STAR_FUSION` removes FusionInspector's `fi_workdir` and `chckpts_dir`
+  before its outputs are collected. The `fusion_inspector` output glob matched both, so they
+  were published into `results/` alongside the finspector tables; they are intermediate
+  working state, not results. Also frees the space they took in the work directory. A failed
+  STAR-Fusion leaves both in place for debugging.
+
+### Fixed
+- **ROBUSTNESS** - `FILTER_AND_MERGE_SAMPLES` and `SUMMARY_PLOTS_AND_TABLES` move to
+  `dermatlas-starfusion:0.6.5`, whose R scripts tolerate an empty sample list or an empty
+  results file instead of failing the task. A cohort or subcohort with no fusions passing
+  filters now completes. Results are unchanged for any analysis that already succeeded.
+
 
 ## [0.4.9] - 2026-09-01
 ### Added

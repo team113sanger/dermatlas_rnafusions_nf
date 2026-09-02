@@ -1,5 +1,5 @@
 process FILTER_AND_MERGE_SAMPLES {
-    container "gitlab-registry.internal.sanger.ac.uk/dermatlas/analysis-methods/dermatlas-starfusion:0.6.3"
+    container "gitlab-registry.internal.sanger.ac.uk/dermatlas/analysis-methods/dermatlas-starfusion:0.6.5"
     publishDir path: { "${params.outdir}/${meta.cohort_id}" },
                mode: "${params.publish_dir_mode}",
                overwrite: "true"
@@ -56,7 +56,7 @@ process FILTER_AND_MERGE_SAMPLES {
 }
 
 process SUMMARY_PLOTS_AND_TABLES {
-    container "gitlab-registry.internal.sanger.ac.uk/dermatlas/analysis-methods/dermatlas-starfusion:0.5.0"
+    container "gitlab-registry.internal.sanger.ac.uk/dermatlas/analysis-methods/dermatlas-starfusion:0.6.5"
     publishDir path: "${params.outdir}/${meta.cohort_id}", 
                mode: "${params.publish_dir_mode}",
                overwrite: "true"
@@ -64,8 +64,8 @@ process SUMMARY_PLOTS_AND_TABLES {
         tuple val(meta), path(table)
     
     output: 
-        tuple val(meta), path("cohort_fusion_sumplots/*.pdf"), emit: plots
-        tuple val(meta), path("*.tsv"), emit: tables
+        tuple val(meta), path("cohort_fusion_sumplots/*.pdf"), emit: plots, optional: true
+        tuple val(meta), path("*.tsv"), emit: tables, optional: true
     
     script:
         """
@@ -76,6 +76,7 @@ process SUMMARY_PLOTS_AND_TABLES {
         """
     stub: 
         """
+        mkdir -p cohort_fusion_sumplots
         echo stub > cohort_fusion_sumplots/${meta.study_id}_cohort_summary_fusions_found.pdf
         echo stub > cohort_fusion_sumplots/${meta.study_id}_Combined_summary_ftypes_per_tot_fusfound_FILTERED.pdf
         echo stub > cohort_fusion_sumplots/${meta.study_id}_Combined_summary_ftypes_per_tot_fusfound_unfilter.pdf
@@ -87,6 +88,6 @@ process SUMMARY_PLOTS_AND_TABLES {
         echo stub > cohort_fusion_sumplots/${meta.study_id}_summary_prop_ftypes_per_tot_fusfound_FILTERED.pdf
         echo stub > cohort_fusion_sumplots/${meta.study_id}_summary_prop_ftypes_per_tot_fusfound_unfilter.pdf
         echo stub > cohort_fusion_sumplots/${meta.study_id}_summary_fusfound_nsamples_noftype.pdf
-        echo stub > cohort_fusion_sumplots/${meta.study_id}_table.FILTERED.tsv
+        echo stub > ${meta.study_id}_table.FILTERED.tsv
         """
 }
