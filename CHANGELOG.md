@@ -23,6 +23,13 @@ changelog entry to indicate the impact of the change:
 
 
 ## [Unreleased]
+### Changed
+- **INTEGRATION** - `STAR_FUSION` removes FusionInspector's `fi_workdir` and `chckpts_dir`
+  before its outputs are collected. The `fusion_inspector` output glob matched both, so they
+  were published into `results/` alongside the finspector tables; they are intermediate
+  working state, not results. Also frees the space they took in the work directory. A failed
+  STAR-Fusion leaves both in place for debugging.
+
 
 ## [0.4.9] - 2026-09-01
 ### Added
