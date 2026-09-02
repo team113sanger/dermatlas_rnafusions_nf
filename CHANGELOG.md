@@ -21,6 +21,12 @@ changelog entry to indicate the impact of the change:
 - **INTEGRATION** - a change to how the pipeline integrates with other systems
   or infrastructure, without changing its scientific processing or results.
 
+## [0.4.11] - 2026-09-03
+### Added
+- **INTEGRATION** - `assets/run_rna_fusions.sh` records the wall time NF run,
+  disk usage of the NF workdir, disk inodes of the NF workdir before deletion of
+  the work directory. Writes to `${PIPELINE_DIR}/stats/resource-stats-${RUN_ID}.txt`.
+
 
 ## [0.4.10] - 2026-09-02
 ### Changed
