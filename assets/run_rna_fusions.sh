@@ -17,7 +17,7 @@
 #   [edit] MANUAL ENVIRONMENT OVERRIDES .. commented exports, one per variable
 #   [skip] ENVIRONMENT VALIDATION
 #   [edit] RUN CONFIGURATION ............. CONFIG, REVISION, LABEL
-#   [skip] FILE SYSTEM SETUP ............. RUN_ID, the .lock, log/trace/clone/cache paths
+#   [skip] FILE SYSTEM SETUP ............. RUN_ID, the .lock, log/trace/stats/clone/cache paths
 #   [skip] EXECUTION OF THE PIPELINE
 #
 # Usage 1 - managed (projectify) runs. The dermanager-generated source_me.sh
@@ -467,13 +467,18 @@ function on_launcher_exit() {
   exit "${status}"
 }
 
+function work_dir_is_ours() {
+  # True only for the work directory this script created. Guards both the measurement
+  # and the rm -rf: an inherited NXF_WORK belongs to someone else.
+  [[ -n "${PIPELINE_DIR:-}" && "${NXF_WORK:-}" == "${PIPELINE_DIR}/work" ]]
+}
+
 function cleanup_work_dir() {
   # Delete this run's work directory - hundreds of GB, and publishDir has already
   # copied out anything worth keeping (needs params.publish_dir_mode = 'copy').
   # Callers must only do this on success: a failed run keeps its work dir.
   local work="${NXF_WORK:-}"
-  # Only ever the directory this script created, never an inherited NXF_WORK.
-  if [[ "${work}" != "${PIPELINE_DIR}/work" ]]; then
+  if ! work_dir_is_ours; then
     printf 'NOTE: refusing to delete "%s" - it is not the work directory this script created.\n' "${work}" >&2
     _WORK_DIR_DISPOSITION="not-removed-refused"
     return 0
@@ -493,15 +498,123 @@ function cleanup_work_dir() {
   return 0
 }
 
+function measure_work_dir() {
+  # Size the work directory in one walk, into _WORK_DIR_BYTES and _WORK_DIR_INODES.
+  # `du -s` and `du -s --inodes` would each traverse the whole tree, and on Lustre the
+  # traversal is the entire cost - one MDS round trip per inode. The walk is metadata
+  # only: it never reads file contents, so there is no block I/O for ionice to throttle
+  # (and Lustre RPCs do not go through the local I/O scheduler in any case).
+  #
+  # %b is st_blocks, so this is allocated bytes rather than apparent size. Symlinks are
+  # not followed (no -L), which is what we want: a stage-in symlink costs its own inode,
+  # not the size of the BAM behind it. Hardlinked files are counted once per link - an
+  # over-estimate this pipeline is not expected to provoke, and close enough for the
+  # cost estimates these numbers feed.
+  local work="${NXF_WORK:-}" out rc=0
+  work_dir_is_ours || return 0
+  [[ -d "${work}" ]] || return 0
+
+  printf 'Measuring work directory: %s\n' "${work}"
+  # pipefail inside the substitution, not PIPESTATUS outside it: PIPESTATUS would
+  # describe the assignment, and a find that died mid-walk would leave awk printing a
+  # partial total that reads exactly like a real one.
+  out="$(set -o pipefail
+         find "${work}" -xdev -printf '%b\n' 2>/dev/null \
+           | awk '{ blocks += $1; files++ } END { printf "%.0f %d\n", blocks * 512, files }')" \
+    || rc=$?
+  if (( rc != 0 )) || [[ -z "${out}" ]]; then
+    printf 'NOTE: could not measure %s (exit %s); the disk figures will be omitted.\n' \
+           "${work}" "${rc}" >&2
+    return 0
+  fi
+  read -r _WORK_DIR_BYTES _WORK_DIR_INODES <<< "${out}"
+  return 0
+}
+
+function pipeline_wall_seconds() {
+  # Seconds spent in `nextflow run`, or nothing if it never started. Read before the
+  # work directory walk, which takes minutes and is not part of the run.
+  local now delta
+  [[ -n "${_PIPELINE_START_EPOCH:-}" ]] || return 0
+  now="$(date +%s 2>/dev/null || true)"
+  [[ -n "${now}" ]] || return 0
+  delta=$(( now - _PIPELINE_START_EPOCH ))
+  if (( delta < 0 )); then delta=0; fi    # a multi-day run can outlive an NTP step
+  printf '%s' "${delta}"
+}
+
+function human_duration() {
+  # Seconds as "4h 12m 07s", for the comment above wall_time.
+  local total="${1:-0}"
+  printf '%dh %02dm %02ds' "$(( total / 3600 ))" "$(( (total % 3600) / 60 ))" "$(( total % 60 ))"
+}
+
+function write_resource_stats() {
+  # This run's cost record - which run it was, its wall time, and the work directory's
+  # footprint - as key=value in ${STATS_FILE}, one file per run. The identity keys are
+  # what make `cat stats/*.txt` self-describing once these are aggregated across cohorts
+  # and revisions. Written on success only, and before the cleanup:
+  # after the rm -rf there is nothing left to measure, whereas a failed run keeps its
+  # work directory and can be measured at leisure.
+  #
+  # Each human-readable conversion is a '#' comment on its own line above its key, so
+  # that `value="${line#*=}"` stays a valid way to read this. A figure that could not be
+  # measured is omitted rather than written as 0 - a missing key cannot be silently
+  # summed into a cost estimate.
+  local gib_whole gib_frac k_whole k_frac
+  [[ -n "${STATS_FILE:-}" ]] || return 0
+
+  if ! {
+    # Identity first, so a concatenated record is attributable without its filename.
+    # No '#' conversion above these two: they are already human-readable.
+    if [[ -n "${RUN_ID:-}" ]]; then
+      printf 'run_id=%s\n' "${RUN_ID}"
+    fi
+    if [[ -n "${REVISION:-}" ]]; then
+      printf 'revision=%s\n' "${REVISION}"
+    fi
+    if [[ -n "${_PIPELINE_WALL_SECONDS:-}" ]]; then
+      printf '# wall_time: %s (`nextflow run` only)\n' "$(human_duration "${_PIPELINE_WALL_SECONDS}")"
+      printf 'wall_time=%s\n' "${_PIPELINE_WALL_SECONDS}"
+    fi
+    if [[ -n "${_WORK_DIR_BYTES:-}" ]]; then
+      gib_whole=$(( _WORK_DIR_BYTES / 1073741824 ))
+      gib_frac=$(( (_WORK_DIR_BYTES % 1073741824) * 100 / 1073741824 ))
+      printf '# disk_usage: %d.%02d GiB allocated\n' "${gib_whole}" "${gib_frac}"
+      printf 'disk_usage=%s\n' "${_WORK_DIR_BYTES}"
+    fi
+    if [[ -n "${_WORK_DIR_INODES:-}" ]]; then
+      k_whole=$(( _WORK_DIR_INODES / 1000 ))
+      k_frac=$(( (_WORK_DIR_INODES % 1000) / 100 ))
+      printf '# disk_inodes: %d.%d thousand\n' "${k_whole}" "${k_frac}"
+      printf 'disk_inodes=%s\n' "${_WORK_DIR_INODES}"
+    fi
+  } > "${STATS_FILE}"
+  then
+    printf 'NOTE: could not write the resource stats %s.\n' "${STATS_FILE}" >&2
+    return 0
+  fi
+
+  chmod 0644 "${STATS_FILE}" 2>/dev/null || true
+  printf 'Wrote resource stats: %s\n' "${STATS_FILE}"
+  return 0
+}
+
 function on_pipeline_exit() {
   # EXIT trap for the `nextflow run` phase. Reports nothing - that is
   # workflow.onComplete's job by then - and cleans up only on success, and only
-  # when the run has not opted out.
+  # when the run has not opted out. On success it also records this run's cost.
   local status="${1:-0}"
   trap - EXIT INT TERM HUP         # never re-enter
   set +e                           # cleanup must not mask ${status}
   set +u                           # nor may an unset reference (see on_launcher_exit)
+  # First, so that the work directory walk below is not counted as run time.
+  _PIPELINE_WALL_SECONDS="$(pipeline_wall_seconds)"
   if (( status == 0 )); then
+    # Before the cleanup, and on both of its branches: on success this is the last
+    # moment the work directory is guaranteed to exist to be measured.
+    measure_work_dir
+    write_resource_stats
     if [[ "${DERMATLAS_CLEANUP_WORK_DIR:-true}" == "true" ]]; then
       cleanup_work_dir
     else
@@ -580,12 +693,26 @@ PIPELINE_SLUG="${RNA_FUSION_PIPELINE_SLUG:-${_DEFAULT_PIPELINE_SLUG}}"
 #                         outside that range cannot collide).
 #   _WORK_DIR_DISPOSITION what became of work/; recorded in the sentinel.
 #   _LAUNCHER_EXTRA_NOTE  one extra line for the failure report (the lock holder).
+# Per-run resource record, written on success by the `nextflow run` exit trap:
+#   STATS_DIR/STATS_FILE   ${PIPELINE_DIR}/stats/resource-stats-${RUN_ID}.txt; set in
+#                          FILE SYSTEM SETUP, once RUN_ID is known.
+#   _PIPELINE_START_EPOCH  start of `nextflow run`; empty until then, so a launch that
+#                          dies during setup records no run time.
+#   _PIPELINE_WALL_SECONDS wall_time, read at the top of the exit trap.
+#   _WORK_DIR_BYTES        allocated bytes and inode count of work/. Empty when the
+#   _WORK_DIR_INODES       measurement could not be taken; the key is then omitted.
 LOCK_FILE=""
 _LOCK_FD=""
 _HOLDS_PIPELINE_LOCK=0
 _LOCK_CONFLICT_RC=75
 _WORK_DIR_DISPOSITION="kept"
 _LAUNCHER_EXTRA_NOTE=""
+STATS_DIR=""
+STATS_FILE=""
+_PIPELINE_START_EPOCH=""
+_PIPELINE_WALL_SECONDS=""
+_WORK_DIR_BYTES=""
+_WORK_DIR_INODES=""
 
 ###########################
 #### ENVIRONMENT SETUP ####
@@ -750,7 +877,11 @@ NXF_RUN_LOG_FILE="${LOG_DIR}/nextflow-run-${RUN_ID}.log"
 NXF_PULL_LOG_FILE="${LOG_DIR}/nextflow-pull-${RUN_ID}.log"
 # Directory for this run's execution trace; consumed by the pipeline's nextflow.config.
 export TRACE_DIR="${PIPELINE_DIR}/traces"
-mkdir -p "${LOG_DIR}" "${TRACE_DIR}"
+# This run's resource record, for future cost estimation. The directory is made here and
+# not in the exit trap: a mkdir that fails inside a trap is a second, harder failure.
+STATS_DIR="${PIPELINE_DIR}/stats"
+STATS_FILE="${STATS_DIR}/resource-stats-${RUN_ID}.txt"
+mkdir -p "${LOG_DIR}" "${TRACE_DIR}" "${STATS_DIR}"
 
 ###################################
 #### EXECUTION OF THE PIPELINE ####
@@ -779,6 +910,7 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 trap 'exit 129' HUP
 
+_PIPELINE_START_EPOCH="$(date +%s)"
 NXF_LOG_FILE="${NXF_RUN_LOG_FILE}" \
   nextflow run "https://github.com/team113sanger/dermatlas_rnafusions_nf" \
   -resume \
