@@ -17,7 +17,7 @@
 #   [edit] MANUAL ENVIRONMENT OVERRIDES .. commented exports, one per variable
 #   [skip] ENVIRONMENT VALIDATION
 #   [edit] RUN CONFIGURATION ............. CONFIG, REVISION, LABEL
-#   [skip] FILE SYSTEM SETUP ............. RUN_ID, the .lock, log/trace/clone/cache paths
+#   [skip] FILE SYSTEM SETUP ............. RUN_ID, the .lock, log/trace/stats/clone/cache paths
 #   [skip] EXECUTION OF THE PIPELINE
 #
 # Usage 1 - managed (projectify) runs. The dermanager-generated source_me.sh
@@ -36,7 +36,7 @@
 #   know your cohort's slug, sample-list version and API endpoint.
 ################################################################################
 
-# -E so the ERR trap installed under FAILURE REPORTING is inherited by functions.
+# -E: the ERR trap must be inherited by functions.
 set -Eeuo pipefail
 
 ###################
@@ -44,9 +44,6 @@ set -Eeuo pipefail
 ###################
 
 function require_env() {
-  # Check that the given environment variables are set and non-empty. The first
-  # argument is a remedy hint printed after the list of missing variables. If
-  # any are missing, print an error message and exit with a non-zero status.
   local remedy="$1"
   shift
   local var missing=()
@@ -61,9 +58,7 @@ function require_env() {
 }
 
 function normalize_bool() {
-  # Rewrite the named toggle in place as exactly "true" or "false". Permissive
-  # about spelling, but an unrecognised value is an error - a typo must not
-  # silently pick a side.
+  # An unrecognised value is fatal: a typo must not silently pick a side.
   local var="$1" val="${!1:-}"
   case "${val,,}" in
     true|t|yes|y|on|1)   printf -v "${var}" 'true' ;;
@@ -78,8 +73,6 @@ function normalize_bool() {
 }
 
 function check_for_source_me() {
-  # Check that the source_me.sh about to be sourced exists and is readable.
-  # If not, print an error message and exit with a non-zero status.
   local source_me="${SOURCE_ME:-./source_me.sh}"
   if [[ ! -f "${source_me}" ]]; then
     printf 'ERROR: %s not found (working directory: %s).\n' "${source_me}" "${PWD}" >&2
@@ -91,18 +84,13 @@ function check_for_source_me() {
 }
 
 function sanitize() {
-  # Sanitize a string to be filesystem-safe. Lowercase, whitespace to hyphen, remove all
-  # non-alphanumeric (except for hyphens and underscores) characters.
   local input="${1:-}"
-  # printf, not echo: echo's trailing newline is whitespace, and would be turned
-  # into a trailing hyphen (e.g. "m25-myofribroma-_20260831T161209").
+  # printf, not echo: echo's trailing newline would become a trailing hyphen.
   printf '%s' "${input}" | tr '[:upper:]' '[:lower:]' | tr '[:space:]' '-' | tr -cd '[:alnum:]-_'
 }
 
 function truncate_string() {
-  # Truncate a string to a maximum length. If the string is longer than the max length,
-  # it is truncated to the first max_length characters.
-  # (Named truncate_string so it does not shadow the coreutils `truncate` binary.)
+  # Named for the coreutils `truncate` binary it must not shadow.
   local input="${1:-}"
   local max_length="${2:-}"
   if (( ${#input} > max_length )); then
@@ -113,9 +101,6 @@ function truncate_string() {
 }
 
 function set_run_id_from_label() {
-  # Create a run ID derived from the date+time in an ISO 8601 timestamp but
-  # filesystem-safe. A label is required and prepended to the timestamp. The label is sanitized to be filesystem-safe.
-  # The format '<LABEL>_YYYYMMDDTHHMMSS'
   local label="${1:-}"
   local timestamp
   if [[ -z "${label}" ]]; then
@@ -129,16 +114,6 @@ function set_run_id_from_label() {
 }
 
 function set_run_id() {
-  # Create a run ID derived from the date+time in an ISO 8601 timestamp but
-  # filesystem-safe. If study, project, and cohort are provided (all optional),
-  # they are prepended to the timestamp. 
-  #
-  # Cohort strings longer than 20 characters are truncated to the first 20 characters.
-  #
-  # Cohort strings have whitespace replaced with hyphens and all other
-  # non-alphanumeric (except for hyphens and underscores) characters removed.
-  #
-  # The format '<STUDY>_<PROJECT>_<COHORT>_YYYYMMDDTHHMMSS'
   local study="${1:-}"
   local project="${2:-}"
   local cohort="${3:-}"
@@ -159,7 +134,6 @@ function set_run_id() {
 }
 
 function json_escape() {
-  # Escape a string for use as a JSON string value (Slack webhook payloads).
   local s="${1:-}"
   s="${s//\\/\\\\}"
   s="${s//\"/\\\"}"
@@ -170,12 +144,8 @@ function json_escape() {
 }
 
 function launcher_failure_ref() {
-  # How this run is referred to in a failure report, mirroring the onComplete
-  # handler's run reference: the cohort slug when the environment gave us one,
-  # otherwise the user's LABEL, otherwise a placeholder. Both are optional and
-  # both may still be unset - the trap can fire before source_me.sh is read and
-  # before RUN CONFIGURATION sets LABEL.
-  # (No angle brackets in any value: Slack parses <...> as a link.)
+  # Mirrors the onComplete handler's run reference. Never angle brackets: this
+  # reaches Slack, which parses <...> as a link.
   local ref="${COHORT_SLUG:-}"
   [[ -n "${ref}" ]] || ref="${LABEL:-}"
   [[ -n "${ref}" ]] || ref="unknown-cohort"
@@ -183,17 +153,13 @@ function launcher_failure_ref() {
 }
 
 function launcher_failure_details() {
-  # The facts of a failed launch, one "Label: value" per line, shared by the
-  # stderr report and the Slack message. Every value is optional: the trap can
-  # fire at any point, so each is printed only once it is knowable.
+  # The trap can fire at any point, so each value is printed only once knowable.
   local status="${1:-}"
   printf 'Cohort: %s\n' "$(launcher_failure_ref)"
   printf 'Study: %s\n' "${STUDY:-unset}"
   printf 'Project: %s\n' "${PROJECT:-unset}"
   printf 'Pipeline: %s\n' "${PIPELINE_SLUG:-unset}${REVISION:+ (${REVISION})}"
   printf 'Exit status: %s\n' "${status}"
-  # Set by acquire_pipeline_lock when it loses the race: identifies the run that
-  # legitimately owns the pipeline directory.
   if [[ -n "${_LAUNCHER_EXTRA_NOTE:-}" ]]; then
     printf '%s\n' "${_LAUNCHER_EXTRA_NOTE}"
   fi
@@ -206,10 +172,7 @@ function launcher_failure_details() {
   if [[ -n "${NXF_PULL_LOG_FILE:-}" && -f "${NXF_PULL_LOG_FILE}" ]]; then
     printf 'Nextflow pull log: %s\n' "${NXF_PULL_LOG_FILE}"
   fi
-  # LSF identifies the submission far better than anything the script knows when
-  # it dies early: LSB_JOBNAME carries the analysis/mission/cohort slug from the
-  # bsub job name, and LS_SUBCWD is the project directory it was submitted from -
-  # which may be the only identifying value present if source_me.sh never loaded.
+  # Often the only identifying values when source_me.sh never loaded.
   if [[ -n "${LSB_JOBID:-}" ]]; then
     printf 'LSF job: %s\n' "${LSB_JOBID}${LSB_JOBNAME:+ (${LSB_JOBNAME})}"
   fi
@@ -220,8 +183,7 @@ function launcher_failure_details() {
 }
 
 function launcher_failure_slack_message() {
-  # The Slack message body. Single-quoted formats throughout: the backticks are
-  # Slack markup, not command substitution.
+  # Single-quoted formats: the backticks are Slack markup, not substitution.
   local status="${1:-}"
   printf ':octagonal_sign: *%s* failed before the pipeline was submitted - `%s`\n' \
          "${_LAUNCHER_LABEL}" "$(launcher_failure_ref)"
@@ -231,10 +193,8 @@ function launcher_failure_slack_message() {
 }
 
 function report_launcher_failure() {
-  # Report a launch that died before `nextflow run` took over, with graceful
-  # degradation: stderr always (it lands in the LSF job output, so a batch of
-  # submissions never fails silently), Slack additionally when the user has
-  # opted in and everything needed to send is present. Each skip says why.
+  # stderr unconditionally - it lands in the LSF job output, so a batch of
+  # submissions never fails silently. Slack only if opted in and possible.
   local status="${1:-}" msg
   printf '\n' >&2
   printf 'ERROR: %s failed - the pipeline was never submitted.\n' "${_LAUNCHER_LABEL}" >&2
@@ -269,16 +229,15 @@ function report_launcher_failure() {
 }
 
 function pipeline_dir_flock_scope() {
-  # Best-effort answer to "would a flock here be honoured by other nodes?". Prints
-  # "cluster", "node-local" or "unknown". Never fatal: the process that actually deletes
-  # data has to fail closed on this, not the launcher.
+  # Would a flock here be honoured by other nodes? Never fatal: the process that
+  # deletes data must fail closed on this, not the launcher.
   local dir="${1:-}" line fstype opts
   command -v findmnt >/dev/null 2>&1 || { printf 'unknown'; return 0; }
   line="$(findmnt -T "${dir}" -no FSTYPE,OPTIONS 2>/dev/null)" || { printf 'unknown'; return 0; }
   [[ -n "${line}" ]] || { printf 'unknown'; return 0; }
   read -r fstype opts <<< "${line}"
-  # Lustre "localflock"/"noflock" and NFS "local_lock=all|flock" keep flock inside one
-  # node, so two farm nodes would each think they own this directory.
+  # These keep flock inside one node, so two farm nodes would each think they
+  # own this directory.
   case ",${opts}," in
     *,localflock,*|*,noflock,*|*,local_lock=all,*|*,local_lock=flock,*)
       printf 'node-local'; return 0 ;;
@@ -291,10 +250,8 @@ function pipeline_dir_flock_scope() {
 }
 
 function lock_holder_description() {
-  # The identity a losing contender reports. Tolerant by construction: the holder
-  # rewrites .lock in the instant after acquiring, so a contender arriving in that
-  # window legitimately sees a blank file - say so rather than guess. Angle brackets
-  # become parens because this string reaches Slack, which parses <...> as a link.
+  # A blank file is legitimate: the holder rewrites .lock in the instant after
+  # acquiring. Angle brackets become parens for Slack.
   local desc=""
   if [[ -f "${LOCK_FILE:-}" ]]; then
     desc="$(head -c 4096 -- "${LOCK_FILE}" 2>/dev/null \
@@ -308,20 +265,12 @@ function lock_holder_description() {
 }
 
 function acquire_pipeline_lock() {
-  # Take the exclusive lock on ${LOCK_FILE} and hold it for the rest of this process.
-  #
-  # The lock lives on the open file description, not on the file: the kernel drops it
-  # when the last fd referring to it closes, including on SIGKILL or a node crash. So
-  # there is never a stale lock to clean up - and ${LOCK_FILE} itself is never removed,
-  # because unlinking it lets the next run create a fresh inode and lock that instead,
-  # excluding nobody.
-  #
-  # Opened ">>", never ">": ">" truncates on open, which would destroy a live holder's
-  # identity line before flock got round to telling us we lost the race.
-  #
-  # The fd is inherited by `nextflow run`, deliberately: the lock then means "this
-  # directory is in use" rather than "a shell is alive", so an orphaned nextflow keeps
-  # the directory protected from the pruner. `lsof "${LOCK_FILE}"` names the holder.
+  # The lock lives on the open file description, so the kernel drops it when this
+  # process dies, however it dies - there is no release, and no stale lock. Nothing may
+  # unlink ${LOCK_FILE}: the next run would create a fresh inode and lock that instead,
+  # excluding nobody. ">>" not ">", which truncates on open and would destroy a live
+  # holder's identity line before flock reports the loss. The fd is inherited by
+  # `nextflow run` on purpose, so an orphaned nextflow still holds the directory.
   local scope rc=0 held_ino path_ino
 
   if [[ -L "${LOCK_FILE}" ]]; then
@@ -341,10 +290,8 @@ function acquire_pipeline_lock() {
     printf '         pruner running elsewhere will not see this lock. Continuing anyway.\n' >&2
   fi
 
-  # A failed redirection on `exec` exits the shell outright rather than returning
-  # non-zero, so this needs no check: on_launcher_exit reports it, and
-  # _HOLDS_PIPELINE_LOCK is still 0 so no sentinel is written - correct, because a
-  # directory we cannot even open may be owned by a live run.
+  # Unchecked: a failed `exec` redirection exits the shell outright, and
+  # _HOLDS_PIPELINE_LOCK is still 0, so no sentinel is written.
   exec {_LOCK_FD}>>"${LOCK_FILE}"
   chmod 0644 "${LOCK_FILE}" 2>/dev/null || true
 
@@ -357,17 +304,15 @@ function acquire_pipeline_lock() {
     printf '       Wait for that run to finish, or kill it, before submitting again.\n' >&2
     exit "${_LOCK_CONFLICT_RC}"
   elif (( rc != 0 )); then
-    # flock's own sysexits codes (65, 71, ...), not ours: flock itself failed, this is
-    # not contention. Reporting it as contention would send someone hunting for a run
-    # that does not exist.
+    # flock's own sysexits codes: reporting these as contention would send someone
+    # hunting for a run that does not exist.
     printf 'ERROR: flock failed on %s (exit %s). This is NOT contention - flock may be\n' "${LOCK_FILE}" "${rc}" >&2
     printf '       unsupported on this filesystem, or the descriptor is unusable.\n' >&2
     exit 1
   fi
 
-  # The lock is only ours if the path we opened is still the inode we locked. If .lock
-  # was replaced between our open() and our flock(), we hold a lock on an orphaned inode
-  # and exclude nobody.
+  # If .lock was replaced between our open() and our flock() we hold an orphaned
+  # inode and exclude nobody.
   held_ino="$(stat -Lc '%d:%i' "/proc/self/fd/${_LOCK_FD}" 2>/dev/null || true)"
   path_ino="$(stat -c '%d:%i' "${LOCK_FILE}" 2>/dev/null || true)"
   if [[ -n "${held_ino}" && "${held_ino}" != "${path_ino}" ]]; then
@@ -376,14 +321,11 @@ function acquire_pipeline_lock() {
     exit 1
   fi
 
-  # Only now. Every exit above leaves the lock NOT held, and write_completion_sentinel
-  # keys off this flag precisely so a run that lost the race cannot overwrite the state
-  # of the run that legitimately owns the directory.
+  # Only now: every exit above leaves the lock unheld.
   _HOLDS_PIPELINE_LOCK=1
 
-  # Publish who we are, for the next contender's error message. A truncating write, not
-  # an append: the fd above is O_APPEND and cannot be rewritten through, hence the
-  # separate open. Done only now, under the lock, so two runs cannot interleave here.
+  # A separate, truncating open: the fd above is O_APPEND and cannot be rewritten
+  # through. Under the lock, so two runs cannot interleave here.
   printf 'run_id=%s pid=%s host=%s lsf_job=%s revision=%s flock_scope=%s started=%s\n' \
          "${RUN_ID:-unset}" "$$" "$(hostname -s 2>/dev/null || echo unknown)" \
          "${LSB_JOBID:-none}${LSB_JOBNAME:+ (${LSB_JOBNAME})}" "${REVISION:-unset}" \
@@ -391,9 +333,8 @@ function acquire_pipeline_lock() {
          > "${LOCK_FILE}" \
     || printf 'NOTE: could not record the lock holder in %s.\n' "${LOCK_FILE}" >&2
 
-  # Clear the previous run's verdict, only ever while holding the lock. From here until
-  # the exit trap neither sentinel exists, which a pruner must read as "in progress, or
-  # died without a verdict - do not touch".
+  # From here until the exit trap neither sentinel exists, which a pruner must read
+  # as "in progress, or died without a verdict - do not touch".
   rm -f -- "${PIPELINE_DIR}/.completed_successfully" \
            "${PIPELINE_DIR}/.completed_with_error"
 
@@ -402,16 +343,13 @@ function acquire_pipeline_lock() {
 }
 
 function write_completion_sentinel() {
-  # Record this run's verdict in ${PIPELINE_DIR} for the external work-dir pruner.
-  # Exactly one of .completed_successfully / .completed_with_error exists afterwards;
-  # both are absent while a run is in progress, and after one that died without
-  # reaching a trap. The filename is the state - the contents are an audit line for
-  # humans, and no pruning decision should parse them.
+  # The external work-dir pruner's input. The filename is the state; the contents are
+  # an audit line for humans that no pruning decision should parse. Neither file exists
+  # while a run is in progress, or after one that died without reaching a trap.
   #
-  # THE GUARD: only a run that actually holds the lock may write. A run that lost the
-  # race to flock exits non-zero and its trap lands here too - writing
-  # .completed_with_error there would declare the other, still-running, run failed and
-  # invite the pruner to delete a live work directory.
+  # The lock guard is load-bearing: a run that lost the race to flock reaches its trap
+  # too, and writing .completed_with_error there would declare the live run failed and
+  # invite the pruner to delete its work directory.
   local status="${1:-0}" name path outcome
   (( ${_HOLDS_PIPELINE_LOCK:-0} == 1 )) || return 0
   [[ -n "${PIPELINE_DIR:-}" && -d "${PIPELINE_DIR:-}" ]] || return 0
@@ -425,15 +363,13 @@ function write_completion_sentinel() {
   fi
   path="${PIPELINE_DIR}/${name}"
 
-  # Both, first: exactly one verdict may exist, and rm -f also drops a symlink planted
-  # where the sentinel goes rather than writing through it.
+  # Both: exactly one verdict may exist, and rm -f drops a symlink planted where the
+  # sentinel goes rather than writing through it.
   rm -f -- "${PIPELINE_DIR}/.completed_successfully" \
            "${PIPELINE_DIR}/.completed_with_error"
 
-  # One printf, one open, one write, so a reader sees the file absent or whole. And it
-  # is written while the lock is still held - the fd closes only when this process
-  # exits, after this trap - so a pruner that locks before reading cannot catch it
-  # part-written.
+  # One write, so a reader sees the file absent or whole. Still under the lock, since
+  # the fd closes only when this process exits.
   if printf 'outcome=%s\nexit_status=%s\nrun_id=%s\nrevision=%s\nfinished=%s\nlsf_job_id=%s\nlsf_job_name=%s\nhost=%s\nwork_dir=%s\nwork_dir_disposition=%s\n' \
        "${outcome}" "${status}" "${RUN_ID:-unset}" "${REVISION:-unset}" \
        "$(date +'%Y-%m-%dT%H:%M:%S%z' 2>/dev/null || echo unknown)" \
@@ -451,15 +387,13 @@ function write_completion_sentinel() {
 }
 
 function on_launcher_exit() {
-  # EXIT trap. Catches the status the script is dying with, reports it, then
-  # re-emits it unchanged so the LSF job still fails.
+  # Re-emits ${status} unchanged so the LSF job still fails.
   local status="${1:-0}"
-  trap - EXIT ERR INT TERM HUP     # never re-enter, whatever happens below
-  set +e                           # a failure in here must not mask ${status}
-  set +u                           # nor may an unset reference: under `set -u` that
-                                   # kills the shell even with `set +e`
-  # Before the human report: the sentinel is what the work-dir pruner reads, and
-  # reporting can hang on curl or be cut short by a second signal.
+  trap - EXIT ERR INT TERM HUP     # never re-enter
+  set +e                           # a failure here must not mask ${status}
+  set +u                           # under `set -u` an unset ref kills the shell
+                                   # even with `set +e`
+  # Sentinel first: reporting can hang on curl or be cut short by a second signal.
   write_completion_sentinel "${status}"
   if (( status != 0 )); then
     report_launcher_failure "${status}"
@@ -467,13 +401,16 @@ function on_launcher_exit() {
   exit "${status}"
 }
 
+function work_dir_is_ours() {
+  # An inherited NXF_WORK belongs to someone else.
+  [[ -n "${PIPELINE_DIR:-}" && "${NXF_WORK:-}" == "${PIPELINE_DIR}/work" ]]
+}
+
 function cleanup_work_dir() {
-  # Delete this run's work directory - hundreds of GB, and publishDir has already
-  # copied out anything worth keeping (needs params.publish_dir_mode = 'copy').
-  # Callers must only do this on success: a failed run keeps its work dir.
+  # Safe only because publishDir has already copied out the keepers (which requires
+  # params.publish_dir_mode = 'copy'). Callers must do this on success only.
   local work="${NXF_WORK:-}"
-  # Only ever the directory this script created, never an inherited NXF_WORK.
-  if [[ "${work}" != "${PIPELINE_DIR}/work" ]]; then
+  if ! work_dir_is_ours; then
     printf 'NOTE: refusing to delete "%s" - it is not the work directory this script created.\n' "${work}" >&2
     _WORK_DIR_DISPOSITION="not-removed-refused"
     return 0
@@ -493,15 +430,108 @@ function cleanup_work_dir() {
   return 0
 }
 
+function measure_work_dir() {
+  # One walk, not `du -s` plus `du -s --inodes`: on Lustre the traversal is the whole
+  # cost. Metadata only, so there is no block I/O for ionice to throttle - and Lustre
+  # RPCs bypass the local I/O scheduler regardless.
+  #
+  # %b is st_blocks: allocated bytes, not apparent size. Symlinks are not followed, so
+  # a stage-in symlink costs its own inode and not the BAM behind it. Hardlinks are
+  # counted per link - an over-estimate, close enough for costing.
+  local work="${NXF_WORK:-}" out rc=0
+  work_dir_is_ours || return 0
+  [[ -d "${work}" ]] || return 0
+
+  printf 'Measuring work directory: %s\n' "${work}"
+  # pipefail inside the substitution: PIPESTATUS outside would describe the
+  # assignment, and a find that died mid-walk leaves awk printing a partial total
+  # that reads exactly like a real one.
+  out="$(set -o pipefail
+         find "${work}" -xdev -printf '%b\n' 2>/dev/null \
+           | awk '{ blocks += $1; files++ } END { printf "%.0f %d\n", blocks * 512, files }')" \
+    || rc=$?
+  if (( rc != 0 )) || [[ -z "${out}" ]]; then
+    printf 'NOTE: could not measure %s (exit %s); the disk figures will be omitted.\n' \
+           "${work}" "${rc}" >&2
+    return 0
+  fi
+  read -r _WORK_DIR_BYTES _WORK_DIR_INODES <<< "${out}"
+  return 0
+}
+
+function pipeline_wall_seconds() {
+  # Empty if `nextflow run` never started.
+  local now delta
+  [[ -n "${_PIPELINE_START_EPOCH:-}" ]] || return 0
+  now="$(date +%s 2>/dev/null || true)"
+  [[ -n "${now}" ]] || return 0
+  delta=$(( now - _PIPELINE_START_EPOCH ))
+  if (( delta < 0 )); then delta=0; fi    # a multi-day run can outlive an NTP step
+  printf '%s' "${delta}"
+}
+
+function human_duration() {
+  local total="${1:-0}"
+  printf '%dh %02dm %02ds' "$(( total / 3600 ))" "$(( (total % 3600) / 60 ))" "$(( total % 60 ))"
+}
+
+function write_resource_stats() {
+  # Written on success only, and before the cleanup: after the rm -rf there is nothing
+  # left to measure, whereas a failed run keeps its work directory.
+  #
+  # Conversions are '#' comments on their own line, so `value="${line#*=}"` stays a
+  # valid way to read this. An unmeasurable figure is omitted rather than written as
+  # 0 - a missing key cannot be silently summed into a cost estimate.
+  local gib_whole gib_frac k_whole k_frac
+  [[ -n "${STATS_FILE:-}" ]] || return 0
+
+  if ! {
+    # First, so a concatenated record is attributable without its filename.
+    if [[ -n "${RUN_ID:-}" ]]; then
+      printf 'run_id=%s\n' "${RUN_ID}"
+    fi
+    if [[ -n "${REVISION:-}" ]]; then
+      printf 'revision=%s\n' "${REVISION}"
+    fi
+    if [[ -n "${_PIPELINE_WALL_SECONDS:-}" ]]; then
+      printf '# wall_time: %s (`nextflow run` only)\n' "$(human_duration "${_PIPELINE_WALL_SECONDS}")"
+      printf 'wall_time=%s\n' "${_PIPELINE_WALL_SECONDS}"
+    fi
+    if [[ -n "${_WORK_DIR_BYTES:-}" ]]; then
+      gib_whole=$(( _WORK_DIR_BYTES / 1073741824 ))
+      gib_frac=$(( (_WORK_DIR_BYTES % 1073741824) * 100 / 1073741824 ))
+      printf '# disk_usage: %d.%02d GiB allocated\n' "${gib_whole}" "${gib_frac}"
+      printf 'disk_usage=%s\n' "${_WORK_DIR_BYTES}"
+    fi
+    if [[ -n "${_WORK_DIR_INODES:-}" ]]; then
+      k_whole=$(( _WORK_DIR_INODES / 1000 ))
+      k_frac=$(( (_WORK_DIR_INODES % 1000) / 100 ))
+      printf '# disk_inodes: %d.%d thousand\n' "${k_whole}" "${k_frac}"
+      printf 'disk_inodes=%s\n' "${_WORK_DIR_INODES}"
+    fi
+  } > "${STATS_FILE}"
+  then
+    printf 'NOTE: could not write the resource stats %s.\n' "${STATS_FILE}" >&2
+    return 0
+  fi
+
+  chmod 0644 "${STATS_FILE}" 2>/dev/null || true
+  printf 'Wrote resource stats: %s\n' "${STATS_FILE}"
+  return 0
+}
+
 function on_pipeline_exit() {
-  # EXIT trap for the `nextflow run` phase. Reports nothing - that is
-  # workflow.onComplete's job by then - and cleans up only on success, and only
-  # when the run has not opted out.
+  # Reports nothing: by now that is workflow.onComplete's job.
   local status="${1:-0}"
   trap - EXIT INT TERM HUP         # never re-enter
   set +e                           # cleanup must not mask ${status}
-  set +u                           # nor may an unset reference (see on_launcher_exit)
+  set +u                           # see on_launcher_exit
+  # Before the walk below, which is not run time.
+  _PIPELINE_WALL_SECONDS="$(pipeline_wall_seconds)"
   if (( status == 0 )); then
+    # Before the cleanup: the last moment work/ is guaranteed to exist.
+    measure_work_dir
+    write_resource_stats
     if [[ "${DERMATLAS_CLEANUP_WORK_DIR:-true}" == "true" ]]; then
       cleanup_work_dir
     else
@@ -511,9 +541,8 @@ function on_pipeline_exit() {
   else
     _WORK_DIR_DISPOSITION="kept-failed-run"
   fi
-  # After the cleanup, never before: the sentinel records what actually happened to the
-  # work directory, so it must not claim "removed" for a run killed part-way through its
-  # own rm -rf. Still inside the trap, so the lock fd has not closed yet.
+  # After the cleanup, never before: it must not claim "removed" for a run killed
+  # part-way through its own rm -rf.
   write_completion_sentinel "${status}"
   exit "${status}"
 }
@@ -522,25 +551,17 @@ function on_pipeline_exit() {
 #### FAILURE REPORTING  ####
 ############################
 
-# Everything from here to the `trap -` before `nextflow run` is covered: if the
-# script dies during setup (a missing variable, an unwritable directory, a
-# failed `module load`, a failed `nextflow pull`, an LSF kill) the trap reports
-# it and re-emits the exit status. Without this a batch of submissions can lose
-# one to a setup error silently - `nextflow run` never starts, so the pipeline's
-# own onComplete reporting never runs.
-#
-# Two stages, because SLACK_WEBHOOK_URL and the opt-in toggles are not known
-# yet: until OPT-IN REPORTING sets _TRAP_CAN_SLACK=1 the trap reports to stderr
-# only. It never sends Slack for a user who has opted out.
+# Covers everything up to the `trap -` before `nextflow run`. Without it a setup
+# failure is silent: `nextflow run` never starts, so the pipeline's own onComplete
+# reporting never runs. Two stages, because SLACK_WEBHOOK_URL is not known yet -
+# until OPT-IN REPORTING sets _TRAP_CAN_SLACK=1 the trap reports to stderr only.
 _LAUNCHER_LABEL="Dermatlas RNA fusions launcher"
 _TRAP_CAN_SLACK=0
 _LAST_ERR_CMD=""
 _LAST_ERR_LINE=""
 
-# The ERR trap only records context; the EXIT trap does the reporting, so an
-# explicit `exit 1` (e.g. from require_env) is reported too, just without a
-# failing command to name. The signal traps exit with 128+n so that a killed
-# job (bkill, memory limit, run limit) still reaches the EXIT trap.
+# ERR only records context; EXIT reports, so a bare `exit 1` is reported too. The
+# signal traps exit 128+n so a killed job still reaches the EXIT trap.
 trap '_LAST_ERR_CMD="${BASH_COMMAND}"; _LAST_ERR_LINE="${LINENO}"' ERR
 trap 'on_launcher_exit $?' EXIT
 trap 'exit 130' INT
@@ -552,77 +573,64 @@ trap 'exit 129' HUP
 ############################
 _DEFAULT_PIPELINE_SLUG="rnafusion_pipe"
 _DEFAULT_SOURCE_ME="./source_me.sh"
-# The toggle values the submitting shell had, snapshotted before source_me.sh is
-# read so OPT-IN REPORTING can apply them over it.
+# Snapshotted before source_me.sh is read, so OPT-IN REPORTING can apply the
+# submitting shell's values over it.
 _ENV_WEBSITE_LOGGING="${DERMATLAS_WEBSITE_LOGGING:-}"
 _ENV_SLACK_NOTIFICATIONS="${DERMATLAS_SLACK_NOTIFICATIONS:-}"
 _ENV_CLEANUP_WORK_DIR="${DERMATLAS_CLEANUP_WORK_DIR:-}"
-# Environment variables checked after sourcing source_me.sh, by class:
-#  - pipeline-essential: always required to run the pipeline at all.
-#  - website-essential:  required only when DERMATLAS_WEBSITE_LOGGING=true.
-#  - slack-essential:    required only when DERMATLAS_SLACK_NOTIFICATIONS=true.
+# Checked after sourcing source_me.sh; the last two only when their toggle is true.
 _PIPELINE_ENV_VARS=(PROJECT_DIR COMMANDS_DIR ANALYSIS_DIR BAMS_DIR STUDY PROJECT \
                 RNA_SAMPLE_LIST_ONE_PER_PATIENT RNA_SAMPLE_LIST_FINAL_DECISION)
 _WEBSITE_ENV_VARS=(COHORT_SLUG SAMPLE_LIST_VERSION_FILE SELF_DESCRIBING_API)
 _SLACK_ENV_VARS=(SLACK_WEBHOOK_URL)
 PIPELINE_SLUG="${RNA_FUSION_PIPELINE_SLUG:-${_DEFAULT_PIPELINE_SLUG}}"
-# Pipeline-directory lock and completion sentinels. Declared here, before any trap can
-# fire, so `set -u` cannot turn a trap into a second, different failure.
-#   LOCK_FILE             ${PIPELINE_DIR}/.lock; set in FILE SYSTEM SETUP. Created once
-#                         and never removed - its presence says only that this directory
-#                         uses the scheme, never that a run is live. Only flock does.
-#   _LOCK_FD              fd holding the flock. Never closed explicitly: the kernel
-#                         releases the lock when this process dies, however it dies.
-#   _HOLDS_PIPELINE_LOCK  1 only between a successful acquire and process exit.
-#                         write_completion_sentinel refuses to write unless it is 1.
-#   _LOCK_CONFLICT_RC     flock -E value, distinguishing "another run holds it" from
-#                         "flock itself failed" (flock uses sysexits 64-71, so a value
-#                         outside that range cannot collide).
-#   _WORK_DIR_DISPOSITION what became of work/; recorded in the sentinel.
-#   _LAUNCHER_EXTRA_NOTE  one extra line for the failure report (the lock holder).
+# Declared before any trap can fire, so `set -u` cannot turn a trap into a second,
+# different failure. The empty ones are set in FILE SYSTEM SETUP. _LOCK_CONFLICT_RC
+# sits outside flock's own sysexits range (64-71), so "another run holds it" cannot
+# be confused with "flock itself failed".
 LOCK_FILE=""
 _LOCK_FD=""
 _HOLDS_PIPELINE_LOCK=0
 _LOCK_CONFLICT_RC=75
 _WORK_DIR_DISPOSITION="kept"
 _LAUNCHER_EXTRA_NOTE=""
+STATS_DIR=""
+STATS_FILE=""
+_PIPELINE_START_EPOCH=""
+_PIPELINE_WALL_SECONDS=""
+_WORK_DIR_BYTES=""
+_WORK_DIR_INODES=""
 
 ###########################
 #### ENVIRONMENT SETUP ####
 ###########################
 
-# Path to the environment file, or "none" to skip sourcing and rely on
-# MANUAL ENVIRONMENT OVERRIDES below.
+# "none" skips sourcing and relies on MANUAL ENVIRONMENT OVERRIDES below.
 SOURCE_ME=${SOURCE_ME:-"${_DEFAULT_SOURCE_ME}"}
 if [[ "${SOURCE_ME}" != "none" ]]; then
   check_for_source_me
-  source "${SOURCE_ME}"             # Most of the environment variables are set here
+  source "${SOURCE_ME}"
 fi
 
 ############################
 #### OPT-IN REPORTING   ####
 ############################
 
-# Defaults for this script's toggles; edit them to change every run. Opted-out
-# (and stub) runs make no network calls.
+# Edit these to change every run. Opted-out runs make no network calls.
 _DEFAULT_WEBSITE_LOGGING="true"        # log this run to the Dermatlas website
 _DEFAULT_SLACK_NOTIFICATIONS="true"    # send a Slack message on completion
 _DEFAULT_CLEANUP_WORK_DIR="true"       # delete this run's work dir after a successful run
 
-# The environment overrides those defaults, most specific first: an export in the
-# submitting shell beats one in source_me.sh, which beats the default above - so a
+# Precedence: submitting shell (_ENV_*) > source_me.sh > the default above, so a
 # one-off run can opt out without editing this file or a shared source_me.sh:
 #   export DERMATLAS_CLEANUP_WORK_DIR=false
 #   bsub ... < commands/<pipeline>/run_rna_fusions.sh
-# (_ENV_* is the shell's value, snapshotted before the source; the bare name holds
-# whatever source_me.sh went on to export.)
 DERMATLAS_WEBSITE_LOGGING="${_ENV_WEBSITE_LOGGING:-${DERMATLAS_WEBSITE_LOGGING:-${_DEFAULT_WEBSITE_LOGGING}}}"
 DERMATLAS_SLACK_NOTIFICATIONS="${_ENV_SLACK_NOTIFICATIONS:-${DERMATLAS_SLACK_NOTIFICATIONS:-${_DEFAULT_SLACK_NOTIFICATIONS}}}"
 DERMATLAS_CLEANUP_WORK_DIR="${_ENV_CLEANUP_WORK_DIR:-${DERMATLAS_CLEANUP_WORK_DIR:-${_DEFAULT_CLEANUP_WORK_DIR}}}"
 
-# Validated here rather than where they are used, so a typo fails the launch
-# immediately rather than hours later, and everything downstream (including the
-# pipeline's own onComplete handler) sees exactly "true" or "false".
+# Validated here, not where they are used: a typo must fail the launch now, not
+# hours later, and onComplete must see exactly "true" or "false".
 normalize_bool DERMATLAS_WEBSITE_LOGGING
 normalize_bool DERMATLAS_SLACK_NOTIFICATIONS
 normalize_bool DERMATLAS_CLEANUP_WORK_DIR
@@ -632,8 +640,7 @@ printf 'Dermatlas website logging:      %s\n' "${DERMATLAS_WEBSITE_LOGGING}"
 printf 'Dermatlas Slack notifications:  %s\n' "${DERMATLAS_SLACK_NOTIFICATIONS}"
 printf 'Work directory cleanup:         %s\n' "${DERMATLAS_CLEANUP_WORK_DIR}"
 
-# Arm the failure trap's Slack channel: the toggles are now known and validated,
-# and source_me.sh has had its chance to export SLACK_WEBHOOK_URL.
+# Only now: source_me.sh has had its chance to export SLACK_WEBHOOK_URL.
 _TRAP_CAN_SLACK=1
 
 ######################################
@@ -689,96 +696,86 @@ fi
 # Nextflow config for this run; git-clone runs point this at their own copy.
 CONFIG="${COMMANDS_DIR}/${PIPELINE_SLUG}/rna_fusions.config"
 # Pipeline version to run: a tag or commit hash.
-REVISION="0.4.10"
-# Optional. If set, RUN_ID becomes <label>_<timestamp> instead of
-# <study>_<project>_<cohort>_<timestamp>.
+REVISION="0.4.11"
+# Optional. If set, RUN_ID becomes <label>_<timestamp>.
 LABEL=""
 
 ###########################
 #### FILE SYSTEM SETUP ####
 ###########################
 
-# Create isolated pipeline directory
 PIPELINE_DIR="${PROJECT_DIR}/${PIPELINE_SLUG}"
 mkdir -p "${PIPELINE_DIR}"
 
-# Run artifacts. Both are owned by this wrapper rather than source_me.sh, so they are
-# always set and need no require_env entry. Computed here, above the lock, so the lock
-# file and both completion sentinels can always name this run - it depends only on
-# LABEL/STUDY/PROJECT/COHORT_SLUG and touches nothing on disk.
+# Above the lock, so the lock file and both sentinels can always name this run.
 if [[ -n "${LABEL:-}" ]]; then
   RUN_ID="$(set_run_id_from_label "${LABEL}")"
 else
   RUN_ID="$(set_run_id "${STUDY:-}" "${PROJECT:-}" "${COHORT_SLUG:-}")"
 fi
-# One id names all of this run's artifacts: nextflow-<RUN_ID>.log,
-# execution_trace-<RUN_ID>.txt, execution_report-<RUN_ID>.html, and the run
-# reference in Slack messages. Exported so the pipeline's nextflow.config and
-# onComplete handler can read it back.
+# Exported so the pipeline's nextflow.config and onComplete handler read it back.
 export RUN_ID
 
-# One launcher owns ${PIPELINE_DIR} at a time. Taken here, before anything under it is
-# written, and released by the kernel when this process dies. Fails fast on contention
-# rather than waiting: a second concurrent submission of the same cohort is a mistake,
-# not a queue - and until now both would have shared one work/ directory, with the first
-# to finish deleting it under the second.
+# One launcher owns ${PIPELINE_DIR} at a time, taken before anything under it is
+# written. Fails fast rather than queueing: two concurrent submissions of one cohort
+# would share a work/ directory, and the first to finish would delete it under the
+# second.
 LOCK_FILE="${PIPELINE_DIR}/.lock"
 acquire_pipeline_lock
 
-# Set isolated Nextflow directories
 export NXF_WORK="${PIPELINE_DIR}/work"
 export NXF_TEMP="${PIPELINE_DIR}/tmp"
 mkdir -p "${NXF_WORK}" "${NXF_TEMP}"
 
-# One git clone per revision. The shared default at ${NXF_HOME}/assets is checked
-# out in place by every pull and run, so parallel runs on different revisions
-# clobber each other, and its first pull of a newly published tag fails with
-# "Cannot find revision". Named clones/ to keep it distinct from assets/.
+# One clone per revision. The shared default at ${NXF_HOME}/assets is checked out in
+# place by every pull and run, so parallel runs on different revisions clobber each
+# other, and a first pull of a newly published tag fails with "Cannot find revision".
 export NXF_ASSETS="${PIPELINE_DIR}/clones/${REVISION}"
 mkdir -p "${NXF_ASSETS}"
 
-# Pinned, not defaulted: an LSF job inherits the submitter's profile, which may
-# already set this. Nextflow's default is <work-dir>/singularity, which the
-# cleanup trap deletes. Matches singularity.cacheDir in the farm22 profile.
+# Pinned because an LSF job inherits the submitter's profile, and because the
+# nextflow default lives under work/, which the cleanup trap deletes. Matches
+# singularity.cacheDir in the farm22 profile.
 export NXF_SINGULARITY_CACHEDIR="/lustre/scratch127/casm/projects/dermatlas/singularity_images"
 
-# Nextflow's own log. Exported rather than passed as -log so that the pipeline can read
-# the path back with System.getenv('NXF_LOG_FILE') in its onComplete handler and name it
-# in the Slack message when a run fails.
+# Exported rather than passed as -log, so onComplete can read the path back with
+# System.getenv('NXF_LOG_FILE') and name it in the Slack message.
 LOG_DIR="${PIPELINE_DIR}/logs"
 NXF_RUN_LOG_FILE="${LOG_DIR}/nextflow-run-${RUN_ID}.log"
 NXF_PULL_LOG_FILE="${LOG_DIR}/nextflow-pull-${RUN_ID}.log"
-# Directory for this run's execution trace; consumed by the pipeline's nextflow.config.
+# Consumed by the pipeline's nextflow.config.
 export TRACE_DIR="${PIPELINE_DIR}/traces"
-mkdir -p "${LOG_DIR}" "${TRACE_DIR}"
+# Made here, not in the exit trap: a mkdir that fails inside a trap is a second,
+# harder failure.
+STATS_DIR="${PIPELINE_DIR}/stats"
+STATS_FILE="${STATS_DIR}/resource-stats-${RUN_ID}.txt"
+mkdir -p "${LOG_DIR}" "${TRACE_DIR}" "${STATS_DIR}"
 
 ###################################
 #### EXECUTION OF THE PIPELINE ####
 ###################################
 
-# Load module dependencies
 module load nextflow-23.10.0
 module load /software/modules/ISG/singularity/3.11.4
 
-# Change to pipeline directory so .nextflow.log goes here
+# Nextflow conventions seems to encourage running from the pipeline directory.
 cd "${PIPELINE_DIR}"
 
 NXF_LOG_FILE="${NXF_PULL_LOG_FILE}" \
   nextflow pull "https://github.com/team113sanger/dermatlas_rnafusions_nf" -r "${REVISION}"
 
-# Hand reporting over to the pipeline: from here on a failure is reported by
-# workflow.onComplete (lib/Utils.groovy), so the trap must not fire as well. Its
-# replacement reports nothing and only acts on success.
+# From here failures are reported by workflow.onComplete (lib/Utils.groovy), so the
+# launcher trap must not fire as well.
 trap - EXIT ERR INT TERM HUP
 trap 'on_pipeline_exit $?' EXIT
-# Reinstated deliberately. Without them an LSF kill during `nextflow run` reaches the
-# EXIT trap with $? == 0 - bash runs the EXIT trap for an untrapped fatal signal, and $?
-# is then the last *completed* command's status, not the signal's - so a killed run looks
-# successful and has its work directory deleted. 128+n makes it the failure it is.
+# Required: for an untrapped fatal signal bash runs the EXIT trap with $? from the last
+# *completed* command, so a killed run would look successful and have its work directory
+# deleted. 128+n makes it the failure it is.
 trap 'exit 130' INT
 trap 'exit 143' TERM
 trap 'exit 129' HUP
 
+_PIPELINE_START_EPOCH="$(date +%s)"
 NXF_LOG_FILE="${NXF_RUN_LOG_FILE}" \
   nextflow run "https://github.com/team113sanger/dermatlas_rnafusions_nf" \
   -resume \
