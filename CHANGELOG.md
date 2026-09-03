@@ -21,6 +21,18 @@ changelog entry to indicate the impact of the change:
 - **INTEGRATION** - a change to how the pipeline integrates with other systems
   or infrastructure, without changing its scientific processing or results.
 
+## [Unreleased]
+### Added
+- **REPRODUCIBILITY** - `sample_universe` restricts which of the files matched by
+  `fastq_path` / `bam_path` are processed to those listed in the `sample` column of a
+  universe TSV, so a stray BAM in the input directory is no longer analysed as a sample.
+  Other columns in the file are ignored. Unset (the default) keeps the previous
+  behaviour of processing every matched file, so existing runs are unaffected. The
+  filter runs before `BAM_TO_FASTQ` and `STAR_FUSION`, so excluded files cost no
+  compute, and it is independent of the per-subcohort `sample_list` files, which still
+  decide what each merged output contains.
+
+
 ## [0.4.11] - 2026-09-03
 ### Added
 - **INTEGRATION** - `assets/run_rna_fusions.sh` records the wall time NF run,

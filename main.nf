@@ -32,6 +32,33 @@ workflow FUSION_ANALYSIS{
 
     ctat_genome_lib = file(params.ctat_lib, checkIfExists: true)
 
+    // Optional sample-universe filter. Without it, every file matched by the input
+    // glob is processed, so a stray BAM left in the input directory becomes a
+    // sample. With it, only files whose sample id appears in the universe TSV are
+    // processed - the TSV's `sample` column is matched against the id the pipeline
+    // derives per sample (the BAM filename prefix, or sample_supplier_name in FASTQ
+    // mode). Membership is all that matters here; the decision columns the TSV also
+    // carries are not read. Applied before BAM_TO_FASTQ and STAR_FUSION, so an
+    // excluded file costs no compute.
+    def sample_universe = params.all_samples
+        ? (file(params.sample_universe, checkIfExists: true)
+            .splitCsv(sep: "\t", header: true)
+            .collect { row -> row.sample }
+            .findAll { it } as Set)
+        : null
+
+    if (sample_universe != null) {
+        // Empty means the file has no data rows, or - the easy mistake - no `sample`
+        // column, in which case every lookup silently returned null.
+        if (sample_universe.isEmpty()) {
+            error "ERROR: no sample ids read from ${params.sample_universe}. " +
+                  "Check the file has a header with a 'sample' column and at least one row."
+        }
+        log.info("Sample universe: ${sample_universe.size()} sample(s) from ${params.sample_universe}")
+    }
+
+    def in_universe = { meta -> sample_universe == null || sample_universe.contains(meta.patient_id) }
+
     if (params.bam_path) {
         // BAM input mode: accept indexed BAMs and derive the patient_id from the
         // filename, taking the prefix before the first dot so trailing tags are
@@ -47,8 +74,11 @@ workflow FUSION_ANALYSIS{
             ) { file -> file.name.tokenize('.').first() }
             .map { patient_id, bam, bai -> tuple(["patient_id": patient_id], bam, bai) }
 
-        // Unwind each BAM back to paired-end reads with samtools.
-        combined_ch = BAM_TO_FASTQ(bams_ch).reads
+        // Unwind each BAM back to paired-end reads with samtools. Filtering first
+        // keeps excluded BAMs out of BAM_TO_FASTQ entirely.
+        combined_ch = BAM_TO_FASTQ(
+            bams_ch.filter { meta, bam, bai -> in_universe(meta) }
+        ).reads
     }
     else {
         // FASTQ input mode: match paired FASTQs by Sanger id and look up the
@@ -60,11 +90,14 @@ workflow FUSION_ANALYSIS{
             .splitCsv(sep: "\t", header: true)
             .map { row -> tuple(["sanger_id": row.sample], ["patient_id": row.sample_supplier_name])}
 
+        // The patient_id is only known after the metadata join, so the universe
+        // filter is applied to the joined channel.
         combined_ch = reads_ch
             .join(metadata_ch)
             .map { sample_id, read1, read2, patient_id ->
                tuple(sample_id + patient_id, read1, read2)
             }
+            .filter { meta, read1, read2 -> in_universe(meta) }
     }
 
     // Warn about samples that will be processed but are absent from every

@@ -1,0 +1,2 @@
+sample	PDID	seq_complete	qc_pass	lab_ok_to_analyse	lab_ok_to_analyse_logical	marked_for_removal	multiple_samples_ppat_present	selected_samp_multiple_samples_ppat_present	usable_for_intial_fus_search	final_decision	use_for_single_samp_ppat_analyses
+PD1001	PD1001	True	1.0	Yes	True	False	False	False	True	True	True
