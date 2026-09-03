@@ -17,4 +17,23 @@ nextflow_pipeline {
 
     }
 
+    test("Should process only the samples listed in the sample universe") {
+
+        options "-stub"
+
+        when {
+            params {
+                load("$baseDir/tests/testdata/test_params.json")
+                all_samples = "$baseDir/tests/testdata/all_samples.tsv"
+            }
+        }
+
+        then {
+            assert workflow.success
+            // PD1002 is not in the universe, so only PD1001 reaches STAR_FUSION.
+            assert workflow.trace.tasks().findAll { it.name.contains("STAR_FUSION") }.size() == 1
+        }
+
+    }
+
 }
