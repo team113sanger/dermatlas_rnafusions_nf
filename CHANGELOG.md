@@ -21,7 +21,7 @@ changelog entry to indicate the impact of the change:
 - **INTEGRATION** - a change to how the pipeline integrates with other systems
   or infrastructure, without changing its scientific processing or results.
 
-## [Unreleased]
+## [0.4.12] - 2026-09-03
 ### Added
 - **REPRODUCIBILITY** - `all_samples` restricts which of the files matched by
   `fastq_path` / `bam_path` are processed to those listed in the `sample` column of a
