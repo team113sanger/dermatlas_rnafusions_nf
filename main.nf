@@ -40,24 +40,24 @@ workflow FUSION_ANALYSIS{
     // mode). Membership is all that matters here; the decision columns the TSV also
     // carries are not read. Applied before BAM_TO_FASTQ and STAR_FUSION, so an
     // excluded file costs no compute.
-    def sample_universe = params.all_samples
-        ? (file(params.sample_universe, checkIfExists: true)
+    def all_samples = params.all_samples
+        ? (file(params.all_samples, checkIfExists: true)
             .splitCsv(sep: "\t", header: true)
             .collect { row -> row.sample }
             .findAll { it } as Set)
         : null
 
-    if (sample_universe != null) {
+    if (all_samples != null) {
         // Empty means the file has no data rows, or - the easy mistake - no `sample`
         // column, in which case every lookup silently returned null.
-        if (sample_universe.isEmpty()) {
-            error "ERROR: no sample ids read from ${params.sample_universe}. " +
+        if (all_samples.isEmpty()) {
+            error "ERROR: no sample ids read from ${params.all_samples}. " +
                   "Check the file has a header with a 'sample' column and at least one row."
         }
-        log.info("Sample universe: ${sample_universe.size()} sample(s) from ${params.sample_universe}")
+        log.info("Sample universe: ${all_samples.size()} sample(s) from ${params.all_samples}")
     }
 
-    def in_universe = { meta -> sample_universe == null || sample_universe.contains(meta.patient_id) }
+    def in_universe = { meta -> all_samples == null || all_samples.contains(meta.patient_id) }
 
     if (params.bam_path) {
         // BAM input mode: accept indexed BAMs and derive the patient_id from the

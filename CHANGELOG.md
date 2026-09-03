@@ -23,7 +23,7 @@ changelog entry to indicate the impact of the change:
 
 ## [Unreleased]
 ### Added
-- **REPRODUCIBILITY** - `sample_universe` restricts which of the files matched by
+- **REPRODUCIBILITY** - `all_samples` restricts which of the files matched by
   `fastq_path` / `bam_path` are processed to those listed in the `sample` column of a
   universe TSV, so a stray BAM in the input directory is no longer analysed as a sample.
   Other columns in the file are ignored. Unset (the default) keeps the previous

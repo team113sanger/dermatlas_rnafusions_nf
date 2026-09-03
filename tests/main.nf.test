@@ -24,7 +24,7 @@ nextflow_pipeline {
         when {
             params {
                 load("$baseDir/tests/testdata/test_params.json")
-                sample_universe = "$baseDir/tests/testdata/sample_universe.tsv"
+                all_samples = "$baseDir/tests/testdata/all_samples.tsv"
             }
         }
 
