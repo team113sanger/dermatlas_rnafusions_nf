@@ -29,6 +29,15 @@ changelog entry to indicate the impact of the change:
   empty `Sanger_RNA_ID` are skipped. A universe file without a `Sanger_RNA_ID` column
   now fails the run with the existing "no sample ids read" error.
 
+### Fixed
+- **INTEGRATION** - `run_rna_fusions.sh` now requires `COHORT_METADATA`, the variable
+  `rna_fusions.config` feeds into `all_samples`. It was wired into the config without the
+  launch-time guard every other interpolated variable has, so a project whose
+  `source_me.sh` did not export it failed after `nextflow run` had started, on a
+  placeholder string where a path was expected, instead of at launch with the variable
+  named. The MANUAL ENVIRONMENT OVERRIDES block and the README's standalone contract now
+  list it too: nine exports, not eight.
+
 
 ## [0.4.13] - 2026-09-09
 ### Fixed

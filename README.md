@@ -110,7 +110,7 @@ The environment itself can come from a `source_me.sh` or from the wrapper direct
 <summary><strong>With a <code>source_me.sh</code></strong> - reusable across runs, and the shape the website generates</summary>
 
 1. Write `source_me.sh` beside the wrapper in `assets/`, which is where the wrapper looks by default. With
-   reporting opted out, these eight exports are the whole contract:
+   reporting opted out, these nine exports are the whole contract:
 
    ```bash
    export PROJECT_DIR="/lustre/.../6740_3016_MY_COHORT_RNA"
@@ -121,6 +121,7 @@ The environment itself can come from a `source_me.sh` or from the wrapper direct
    export PROJECT="3016"   # part of the run id
    export RNA_SAMPLE_LIST_ONE_PER_PATIENT="${PROJECT_DIR}/metadata/one_samp_ppat_sampnames.tsv"
    export RNA_SAMPLE_LIST_FINAL_DECISION="${PROJECT_DIR}/metadata/final_decision_sampnames.tsv"
+   export COHORT_METADATA="${PROJECT_DIR}/metadata/cohort_metadata.tsv"   # sample universe (all_samples)
    ```
 
 2. In the wrapper, under **OPT-IN REPORTING** set `DERMATLAS_WEBSITE_LOGGING` and
@@ -145,7 +146,7 @@ To override a single value without regenerating the file, uncomment just that va
 1. Under **ENVIRONMENT SETUP**, set `SOURCE_ME="none"` so the wrapper skips sourcing anything.
 
 2. Under **MANUAL ENVIRONMENT OVERRIDES**, uncomment and fill in the pipeline-essential exports. With reporting
-   opted out, these eight are the whole contract:
+   opted out, these nine are the whole contract:
 
    ```bash
    export PROJECT_DIR="/lustre/.../6740_3016_MY_COHORT_RNA"
@@ -156,6 +157,7 @@ To override a single value without regenerating the file, uncomment just that va
    export PROJECT="3016"   # part of the run id
    export RNA_SAMPLE_LIST_ONE_PER_PATIENT="${PROJECT_DIR}/metadata/one_samp_ppat_sampnames.tsv"
    export RNA_SAMPLE_LIST_FINAL_DECISION="${PROJECT_DIR}/metadata/final_decision_sampnames.tsv"
+   export COHORT_METADATA="${PROJECT_DIR}/metadata/cohort_metadata.tsv"   # sample universe (all_samples)
    ```
 
 3. Under **OPT-IN REPORTING** set `DERMATLAS_WEBSITE_LOGGING` and `DERMATLAS_SLACK_NOTIFICATIONS` to
