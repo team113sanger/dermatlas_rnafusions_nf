@@ -21,6 +21,19 @@ changelog entry to indicate the impact of the change:
 - **INTEGRATION** - a change to how the pipeline integrates with other systems
   or infrastructure, without changing its scientific processing or results.
 
+## [0.4.13] - 2026-09-09
+### Fixed
+- **ROBUSTNESS** - `FILTER_AND_MERGE_SAMPLES` and `SUMMARY_PLOTS_AND_TABLES` move to
+  `dermatlas-starfusion:0.6.6`, whose `cohort_fusion_plotter_and_filter.R` exits cleanly
+  when the merged table has rows but no sample in the cohort has a fusion. Previously
+  every plot was drawn from the `fusfound` rows, so an all-`FALSE` table left ggplot
+  faceting on an empty variable and the task died with `Faceting variables must have at
+  least one value`, failing the run. The 0.6.5 guard only covered a table with no rows at
+  all. The filtered table is still written; the plot directory is empty, which the
+  process's `optional: true` outputs already allow. Results are unchanged for any cohort
+  that already produced plots.
+
+
 ## [0.4.12] - 2026-09-03
 ### Added
 - **REPRODUCIBILITY** - `all_samples` restricts which of the files matched by
