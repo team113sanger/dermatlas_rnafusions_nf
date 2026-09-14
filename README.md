@@ -31,12 +31,12 @@ Provide **exactly one** input mode, either `fastq_path` or `bam_path`:
 - `sample_metadata`: path to a metadata file containing sample information (only used with `fastq_path`). The metadata file should be a tab-separated file with the following columns:
     - `sample`: Unique Sanger identifier for each sample
     - `sample_supplier_name`: Dermatlas sample identifier for a tumour (PRID)
-- `all_samples` *(optional)*: path to a TSV listing the universe of samples for the study, used to restrict which of the files matched by `fastq_path` / `bam_path` are actually processed. Unset (the default) means every matched file is processed, so a stray BAM left in the input directory becomes a sample. When set, a file is processed only if its id appears in the TSV's `sample` column, matched against the id the pipeline derives per sample (the BAM filename prefix, or `sample_supplier_name` in FASTQ mode). Any other columns in the file are ignored. The filter is applied before `BAM_TO_FASTQ` and `STAR_FUSION`, so excluded files cost no compute. Example file:
+- `all_samples` *(optional)*: path to the cohort metadata TSV, used to restrict which of the files matched by `fastq_path` / `bam_path` are actually processed. The Dermatlas config sets it from `${COHORT_METADATA}`. Unset (the default) means every matched file is processed, so a stray BAM left in the input directory becomes a sample. When set, a file is processed only if its id appears in the TSV's `Sanger_RNA_ID` column, matched against the id the pipeline derives per sample (the BAM filename prefix, or `sample_supplier_name` in FASTQ mode). Rows with an empty `Sanger_RNA_ID` and all other columns in the file are ignored. The filter is applied before `BAM_TO_FASTQ` and `STAR_FUSION`, so excluded files cost no compute. Example file:
 
 ```
-sample     PDID      seq_complete  qc_pass  ...  usable_for_intial_fus_search  final_decision
-PR62375a   PD62375   True          1.0      ...  True                          True
-PR62376a   PD62376   False                  ...  False                         False
+Sanger_RNA_ID  PDID      ...
+PR62375a       PD62375   ...
+PR62376a       PD62376   ...
 ```
 
     This filter is upstream of, and independent from, the per-subcohort `sample_list` files below: the universe decides which input files STAR-Fusion runs on, each `sample_list` decides what a given merged output contains.

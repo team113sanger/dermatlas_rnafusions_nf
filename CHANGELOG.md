@@ -21,6 +21,15 @@ changelog entry to indicate the impact of the change:
 - **INTEGRATION** - a change to how the pipeline integrates with other systems
   or infrastructure, without changing its scientific processing or results.
 
+## [Unreleased]
+### Changed
+- **INTEGRATION** - `assets/rna_fusions.config` now takes `all_samples` from
+  `${COHORT_METADATA}` instead of `${RNA_SAMPLE_QC_MANIFEST}`, and the sample-universe
+  filter matches on the file's `Sanger_RNA_ID` column instead of `sample`. Rows with an
+  empty `Sanger_RNA_ID` are skipped. A universe file without a `Sanger_RNA_ID` column
+  now fails the run with the existing "no sample ids read" error.
+
+
 ## [0.4.13] - 2026-09-09
 ### Fixed
 - **ROBUSTNESS** - `FILTER_AND_MERGE_SAMPLES` and `SUMMARY_PLOTS_AND_TABLES` move to
