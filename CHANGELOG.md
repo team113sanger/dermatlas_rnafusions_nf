@@ -23,6 +23,8 @@ changelog entry to indicate the impact of the change:
 
 ## [Unreleased]
 ### Changed
+- **INTEGRATION** - `assets/run_rna_fusions.sh` now adds work directory usage
+  reporting to the Dermatlas website.
 - **INTEGRATION** - `assets/rna_fusions.config` now takes `all_samples` from
   `${COHORT_METADATA}` instead of `${RNA_SAMPLE_QC_MANIFEST}`, and the sample-universe
   filter matches on the file's `Sanger_RNA_ID` column instead of `sample`. Rows with an
