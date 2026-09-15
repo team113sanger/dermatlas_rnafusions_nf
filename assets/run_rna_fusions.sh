@@ -756,7 +756,7 @@ fi
 # Nextflow config for this run; git-clone runs point this at their own copy.
 CONFIG="${COMMANDS_DIR}/${PIPELINE_SLUG}/rna_fusions.config"
 # Pipeline version to run: a tag or commit hash.
-REVISION="0.4.13"
+REVISION="0.4.14"
 # Optional. If set, RUN_ID becomes <label>_<timestamp>.
 LABEL=""
 
