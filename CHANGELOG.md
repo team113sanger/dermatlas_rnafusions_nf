@@ -22,6 +22,8 @@ changelog entry to indicate the impact of the change:
   or infrastructure, without changing its scientific processing or results.
 
 ## [Unreleased]
+
+## [0.4.14] - 2026-09-15
 ### Changed
 - **INTEGRATION** - `assets/run_rna_fusions.sh` now adds work directory usage
   reporting to the Dermatlas website.
