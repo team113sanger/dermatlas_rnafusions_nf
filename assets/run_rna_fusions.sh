@@ -493,6 +493,11 @@ function write_resource_stats() {
     if [[ -n "${REVISION:-}" ]]; then
       printf 'revision=%s\n' "${REVISION}"
     fi
+    # Read by `dermatlas-http cohort analysis-workdir-stats`, which cannot infer
+    # the pipeline from a relative path.
+    if [[ -n "${PIPELINE_SLUG:-}" ]]; then
+      printf 'pipeline_slug=%s\n' "${PIPELINE_SLUG}"
+    fi
     if [[ -n "${_PIPELINE_WALL_SECONDS:-}" ]]; then
       printf '# wall_time: %s (`nextflow run` only)\n' "$(human_duration "${_PIPELINE_WALL_SECONDS}")"
       printf 'wall_time=%s\n' "${_PIPELINE_WALL_SECONDS}"
@@ -520,6 +525,54 @@ function write_resource_stats() {
   return 0
 }
 
+function report_workdir_usage() {
+  # The second half of website logging. workflow.onComplete POSTed the run
+  # (the row with its status and duration); this PATCHes onto that row the
+  # work-dir figures the launcher could only measure after `nextflow run`
+  # returned. Fed the stats file, so the numbers on the website are the numbers
+  # on disk; the server finds the row from run_id + wall_time.
+  #
+  # Best effort, always returns 0: the run itself succeeded, and the stats file
+  # remains on disk to replay by hand with the command printed on failure.
+  # dermatlas-http is not on PATH in an LSF job (Utils.groovy solves the same
+  # problem for onComplete), so it is module-loaded here when needed.
+  local rc=0
+  [[ "${DERMATLAS_WEBSITE_LOGGING:-false}" == "true" ]] || return 0
+  if [[ -z "${STATS_FILE:-}" || ! -s "${STATS_FILE}" ]]; then
+    printf 'NOTE: no resource stats file; skipping the website work-dir report.\n' >&2
+    return 0
+  fi
+  if [[ -z "${_WORK_DIR_BYTES:-}" || -z "${_WORK_DIR_INODES:-}" ]]; then
+    printf 'NOTE: work directory was not measured; skipping the website work-dir report.\n' >&2
+    return 0
+  fi
+  if ! command -v dermatlas-http >/dev/null 2>&1; then
+    if ! type module >/dev/null 2>&1; then
+      printf 'NOTE: dermatlas-http is not on PATH and `module` is unavailable; skipping the website work-dir report.\n' >&2
+      return 0
+    fi
+    if ! module load "${DERMATLAS_HTTP_MODULE}"; then
+      printf 'NOTE: `module load %s` failed; skipping the website work-dir report.\n' "${DERMATLAS_HTTP_MODULE}" >&2
+      return 0
+    fi
+    if ! command -v dermatlas-http >/dev/null 2>&1; then
+      printf 'NOTE: module %s loaded but dermatlas-http is still not on PATH; skipping the website work-dir report.\n' "${DERMATLAS_HTTP_MODULE}" >&2
+      return 0
+    fi
+  fi
+  printf 'Reporting work-dir usage to the Dermatlas website: %s\n' "${STATS_FILE}"
+  dermatlas-http cohort analysis-workdir-stats \
+    --stats-file "${STATS_FILE}" \
+    --pipeline "${PIPELINE_SLUG}" \
+    --api "${SELF_DESCRIBING_API}" || rc=$?
+  if (( rc != 0 )); then
+    printf 'NOTE: the website work-dir report failed (exit %s). Replay it with:\n' "${rc}" >&2
+    printf '      dermatlas-http cohort analysis-workdir-stats --stats-file %q --pipeline %q --api %q\n' \
+           "${STATS_FILE}" "${PIPELINE_SLUG}" "${SELF_DESCRIBING_API}" >&2
+  fi
+  return 0
+}
+
 function on_pipeline_exit() {
   # Reports nothing: by now that is workflow.onComplete's job.
   local status="${1:-0}"
@@ -532,6 +585,7 @@ function on_pipeline_exit() {
     # Before the cleanup: the last moment work/ is guaranteed to exist.
     measure_work_dir
     write_resource_stats
+    report_workdir_usage
     if [[ "${DERMATLAS_CLEANUP_WORK_DIR:-true}" == "true" ]]; then
       cleanup_work_dir
     else
@@ -573,6 +627,8 @@ trap 'exit 129' HUP
 ############################
 _DEFAULT_PIPELINE_SLUG="rnafusion_pipe"
 _DEFAULT_SOURCE_ME="./source_me.sh"
+# The environment module that puts dermatlas-http on PATH for the work-dir report.
+_DEFAULT_DERMATLAS_HTTP_MODULE="dermatlas-http"
 # Snapshotted before source_me.sh is read, so OPT-IN REPORTING can apply the
 # submitting shell's values over it.
 _ENV_WEBSITE_LOGGING="${DERMATLAS_WEBSITE_LOGGING:-}"
@@ -636,6 +692,9 @@ normalize_bool DERMATLAS_SLACK_NOTIFICATIONS
 normalize_bool DERMATLAS_CLEANUP_WORK_DIR
 export DERMATLAS_WEBSITE_LOGGING DERMATLAS_SLACK_NOTIFICATIONS DERMATLAS_CLEANUP_WORK_DIR
 
+# The module is only loaded if dermatlas-http is not already on PATH.
+DERMATLAS_HTTP_MODULE="${DERMATLAS_HTTP_MODULE:-${_DEFAULT_DERMATLAS_HTTP_MODULE}}"
+
 printf 'Dermatlas website logging:      %s\n' "${DERMATLAS_WEBSITE_LOGGING}"
 printf 'Dermatlas Slack notifications:  %s\n' "${DERMATLAS_SLACK_NOTIFICATIONS}"
 printf 'Work directory cleanup:         %s\n' "${DERMATLAS_CLEANUP_WORK_DIR}"
@@ -667,6 +726,7 @@ _TRAP_CAN_SLACK=1
 # export COHORT_SLUG=""              # e.g. "m10-cutaneous-mixed-tumour"; keys the analysis-log record
 # export SAMPLE_LIST_VERSION_FILE="" # e.g. "${PROJECT_DIR}/metadata/VERSION"; a file holding one integer >= 1
 # export SELF_DESCRIBING_API=""      # e.g. "https://team113.sanger.ac.uk/api/v1/resolve/"; dermatlas-http --api endpoint
+# export DERMATLAS_HTTP_MODULE=""    # e.g. "dermatlas-http"; the module loaded to put dermatlas-http on PATH for the work-dir report
 #
 # Slack-essential (required only when DERMATLAS_SLACK_NOTIFICATIONS="true"):
 # export SLACK_WEBHOOK_URL=""        # e.g. "https://hooks.slack.com/services/T000/B000/XXXX"
@@ -696,7 +756,7 @@ fi
 # Nextflow config for this run; git-clone runs point this at their own copy.
 CONFIG="${COMMANDS_DIR}/${PIPELINE_SLUG}/rna_fusions.config"
 # Pipeline version to run: a tag or commit hash.
-REVISION="0.4.13"
+REVISION="0.4.14"
 # Optional. If set, RUN_ID becomes <label>_<timestamp>.
 LABEL=""
 

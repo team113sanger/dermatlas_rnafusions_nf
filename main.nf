@@ -34,25 +34,26 @@ workflow FUSION_ANALYSIS{
 
     // Optional sample-universe filter. Without it, every file matched by the input
     // glob is processed, so a stray BAM left in the input directory becomes a
-    // sample. With it, only files whose sample id appears in the universe TSV are
-    // processed - the TSV's `sample` column is matched against the id the pipeline
-    // derives per sample (the BAM filename prefix, or sample_supplier_name in FASTQ
-    // mode). Membership is all that matters here; the decision columns the TSV also
-    // carries are not read. Applied before BAM_TO_FASTQ and STAR_FUSION, so an
-    // excluded file costs no compute.
+    // sample. With it, only files whose sample id appears in the cohort metadata TSV
+    // are processed - the TSV's `Sanger_RNA_ID` column is matched against the id the
+    // pipeline derives per sample (the BAM filename prefix, or sample_supplier_name in
+    // FASTQ mode). Membership is all that matters here; the other columns the TSV
+    // carries are not read, and rows with an empty `Sanger_RNA_ID` are skipped.
+    // Applied before BAM_TO_FASTQ and STAR_FUSION, so an excluded file costs no
+    // compute.
     def all_samples = params.all_samples
         ? (file(params.all_samples, checkIfExists: true)
             .splitCsv(sep: "\t", header: true)
-            .collect { row -> row.sample }
+            .collect { row -> row.Sanger_RNA_ID }
             .findAll { it } as Set)
         : null
 
     if (all_samples != null) {
-        // Empty means the file has no data rows, or - the easy mistake - no `sample`
-        // column, in which case every lookup silently returned null.
+        // Empty means the file has no data rows, or - the easy mistake - no
+        // `Sanger_RNA_ID` column, in which case every lookup silently returned null.
         if (all_samples.isEmpty()) {
             error "ERROR: no sample ids read from ${params.all_samples}. " +
-                  "Check the file has a header with a 'sample' column and at least one row."
+                  "Check the file has a header with a 'Sanger_RNA_ID' column and at least one row."
         }
         log.info("Sample universe: ${all_samples.size()} sample(s) from ${params.all_samples}")
     }

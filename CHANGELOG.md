@@ -21,6 +21,28 @@ changelog entry to indicate the impact of the change:
 - **INTEGRATION** - a change to how the pipeline integrates with other systems
   or infrastructure, without changing its scientific processing or results.
 
+## [Unreleased]
+
+## [0.4.14] - 2026-09-15
+### Changed
+- **INTEGRATION** - `assets/run_rna_fusions.sh` now adds work directory usage
+  reporting to the Dermatlas website.
+- **INTEGRATION** - `assets/rna_fusions.config` now takes `all_samples` from
+  `${COHORT_METADATA}` instead of `${RNA_SAMPLE_QC_MANIFEST}`, and the sample-universe
+  filter matches on the file's `Sanger_RNA_ID` column instead of `sample`. Rows with an
+  empty `Sanger_RNA_ID` are skipped. A universe file without a `Sanger_RNA_ID` column
+  now fails the run with the existing "no sample ids read" error.
+
+### Fixed
+- **INTEGRATION** - `run_rna_fusions.sh` now requires `COHORT_METADATA`, the variable
+  `rna_fusions.config` feeds into `all_samples`. It was wired into the config without the
+  launch-time guard every other interpolated variable has, so a project whose
+  `source_me.sh` did not export it failed after `nextflow run` had started, on a
+  placeholder string where a path was expected, instead of at launch with the variable
+  named. The MANUAL ENVIRONMENT OVERRIDES block and the README's standalone contract now
+  list it too: nine exports, not eight.
+
+
 ## [0.4.13] - 2026-09-09
 ### Fixed
 - **ROBUSTNESS** - `FILTER_AND_MERGE_SAMPLES` and `SUMMARY_PLOTS_AND_TABLES` move to
