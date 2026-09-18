@@ -31,7 +31,7 @@ Provide **exactly one** input mode, either `fastq_path` or `bam_path`:
 - `sample_metadata`: path to a metadata file containing sample information (only used with `fastq_path`). The metadata file should be a tab-separated file with the following columns:
     - `sample`: Unique Sanger identifier for each sample
     - `sample_supplier_name`: Dermatlas sample identifier for a tumour (PRID)
-- `all_samples` *(optional)*: path to the cohort metadata TSV, used to restrict which of the files matched by `fastq_path` / `bam_path` are actually processed. The Dermatlas config sets it from `${COHORT_METADATA}`. Unset (the default) means every matched file is processed, so a stray BAM left in the input directory becomes a sample. When set, a file is processed only if its id appears in the TSV's `Sanger_RNA_ID` column, matched against the id the pipeline derives per sample (the BAM filename prefix, or `sample_supplier_name` in FASTQ mode). Rows with an empty `Sanger_RNA_ID` and all other columns in the file are ignored. The filter is applied before `BAM_TO_FASTQ` and `STAR_FUSION`, so excluded files cost no compute. Example file:
+- `all_samples` *(optional)*: path to the cohort metadata TSV, used to restrict which of the files matched by `fastq_path` / `bam_path` are actually processed. The Dermatlas config sets it from `${COHORT_METADATA_FILE}`. Unset (the default) means every matched file is processed, so a stray BAM left in the input directory becomes a sample. When set, a file is processed only if its id appears in the TSV's `Sanger_RNA_ID` column, matched against the id the pipeline derives per sample (the BAM filename prefix, or `sample_supplier_name` in FASTQ mode). Rows with an empty `Sanger_RNA_ID` and all other columns in the file are ignored. The filter is applied before `BAM_TO_FASTQ` and `STAR_FUSION`, so excluded files cost no compute. Example file:
 
 ```
 Sanger_RNA_ID  PDID      ...
@@ -121,7 +121,7 @@ The environment itself can come from a `source_me.sh` or from the wrapper direct
    export PROJECT="3016"   # part of the run id
    export RNA_SAMPLE_LIST_ONE_PER_PATIENT="${PROJECT_DIR}/metadata/one_samp_ppat_sampnames.tsv"
    export RNA_SAMPLE_LIST_FINAL_DECISION="${PROJECT_DIR}/metadata/final_decision_sampnames.tsv"
-   export COHORT_METADATA="${PROJECT_DIR}/metadata/cohort_metadata.tsv"   # sample universe (all_samples)
+   export COHORT_METADATA_FILE="${PROJECT_DIR}/metadata/cohort_metadata.tsv"  # sample universe (all_samples)
    ```
 
 2. In the wrapper, under **OPT-IN REPORTING** set `DERMATLAS_WEBSITE_LOGGING` and
@@ -157,7 +157,7 @@ To override a single value without regenerating the file, uncomment just that va
    export PROJECT="3016"   # part of the run id
    export RNA_SAMPLE_LIST_ONE_PER_PATIENT="${PROJECT_DIR}/metadata/one_samp_ppat_sampnames.tsv"
    export RNA_SAMPLE_LIST_FINAL_DECISION="${PROJECT_DIR}/metadata/final_decision_sampnames.tsv"
-   export COHORT_METADATA="${PROJECT_DIR}/metadata/cohort_metadata.tsv"   # sample universe (all_samples)
+   export COHORT_METADATA_FILE="${PROJECT_DIR}/metadata/cohort_metadata.tsv"  # sample universe (all_samples)
    ```
 
 3. Under **OPT-IN REPORTING** set `DERMATLAS_WEBSITE_LOGGING` and `DERMATLAS_SLACK_NOTIFICATIONS` to

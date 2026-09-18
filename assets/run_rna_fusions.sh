@@ -636,7 +636,8 @@ _ENV_SLACK_NOTIFICATIONS="${DERMATLAS_SLACK_NOTIFICATIONS:-}"
 _ENV_CLEANUP_WORK_DIR="${DERMATLAS_CLEANUP_WORK_DIR:-}"
 # Checked after sourcing source_me.sh; the last two only when their toggle is true.
 _PIPELINE_ENV_VARS=(PROJECT_DIR COMMANDS_DIR ANALYSIS_DIR BAMS_DIR STUDY PROJECT \
-                RNA_SAMPLE_LIST_ONE_PER_PATIENT RNA_SAMPLE_LIST_FINAL_DECISION)
+                RNA_SAMPLE_LIST_ONE_PER_PATIENT RNA_SAMPLE_LIST_FINAL_DECISION \
+                COHORT_METADATA_FILE)
 _WEBSITE_ENV_VARS=(COHORT_SLUG SAMPLE_LIST_VERSION_FILE SELF_DESCRIBING_API)
 _SLACK_ENV_VARS=(SLACK_WEBHOOK_URL)
 PIPELINE_SLUG="${RNA_FUSION_PIPELINE_SLUG:-${_DEFAULT_PIPELINE_SLUG}}"
@@ -721,6 +722,7 @@ _TRAP_CAN_SLACK=1
 # export PROJECT=""        # e.g. "3016"; part of the run id
 # export RNA_SAMPLE_LIST_ONE_PER_PATIENT=""  # e.g. "${PROJECT_DIR}/metadata/<cohort>_one_samp_ppat_sampnames.tsv"
 # export RNA_SAMPLE_LIST_FINAL_DECISION=""   # e.g. "${PROJECT_DIR}/metadata/<cohort>_final_decision_sampnames.tsv"
+# export COHORT_METADATA_FILE=""            # e.g. "${PROJECT_DIR}/metadata/<cohort>_metadata.tsv"; the sample universe (config: all_samples)
 #
 # Website-essential (required only when DERMATLAS_WEBSITE_LOGGING="true"):
 # export COHORT_SLUG=""              # e.g. "m10-cutaneous-mixed-tumour"; keys the analysis-log record
@@ -756,7 +758,7 @@ fi
 # Nextflow config for this run; git-clone runs point this at their own copy.
 CONFIG="${COMMANDS_DIR}/${PIPELINE_SLUG}/rna_fusions.config"
 # Pipeline version to run: a tag or commit hash.
-REVISION="0.4.14"
+REVISION="0.4.15"
 # Optional. If set, RUN_ID becomes <label>_<timestamp>.
 LABEL=""
 
