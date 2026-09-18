@@ -22,6 +22,19 @@ changelog entry to indicate the impact of the change:
   or infrastructure, without changing its scientific processing or results.
 
 ## [Unreleased]
+### Changed
+- **INTEGRATION** - the sample-universe environment variable is renamed
+  `COHORT_METADATA` -> `COHORT_METADATA_FILE`, in `rna_fusions.config`
+  (`all_samples`), in `run_rna_fusions.sh` (the launch-time guard and the MANUAL
+  ENVIRONMENT OVERRIDES block) and in the README's standalone contract. A
+  `source_me.sh` exporting the old name now fails at launch with the variable
+  named.
+
+### Fixed
+- **INTEGRATION** - `run_rna_fusions.sh` guards the sample-universe variable again.
+  The 0.4.14 work-dir-reporting change dropped it from `_PIPELINE_ENV_VARS` and from
+  MANUAL ENVIRONMENT OVERRIDES, undoing the same release's fix, so a project that did
+  not export it failed after `nextflow run` had started rather than at launch.
 
 ## [0.4.14] - 2026-09-15
 ### Changed
