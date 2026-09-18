@@ -22,19 +22,30 @@ changelog entry to indicate the impact of the change:
   or infrastructure, without changing its scientific processing or results.
 
 ## [Unreleased]
+
+## [0.4.15] - 2026-09-18
 ### Changed
 - **INTEGRATION** - the sample-universe environment variable is renamed
-  `COHORT_METADATA` -> `COHORT_METADATA_FILE`, in `rna_fusions.config`
-  (`all_samples`), in `run_rna_fusions.sh` (the launch-time guard and the MANUAL
-  ENVIRONMENT OVERRIDES block) and in the README's standalone contract. A
-  `source_me.sh` exporting the old name now fails at launch with the variable
-  named.
+  `COHORT_METADATA` -> `COHORT_METADATA_FILE`, in `rna_fusions.config` (which feeds it
+  into `all_samples`), in `run_rna_fusions.sh` (the launch-time guard and the MANUAL
+  ENVIRONMENT OVERRIDES block) and in the README's standalone contract. This is a
+  breaking change to the launch contract: a `source_me.sh` still exporting
+  `COHORT_METADATA` now fails the launch with the missing variable named, and the
+  generator that writes `source_me.sh` has to emit the new name before a project can
+  run 0.4.15.
 
 ### Fixed
-- **INTEGRATION** - `run_rna_fusions.sh` guards the sample-universe variable again.
-  The 0.4.14 work-dir-reporting change dropped it from `_PIPELINE_ENV_VARS` and from
-  MANUAL ENVIRONMENT OVERRIDES, undoing the same release's fix, so a project that did
-  not export it failed after `nextflow run` had started rather than at launch.
+- **INTEGRATION** - `run_rna_fusions.sh` guards the sample-universe variable again. The
+  0.4.14 work-directory-reporting change dropped it from `_PIPELINE_ENV_VARS` and from
+  the MANUAL ENVIRONMENT OVERRIDES block, undoing the fix released alongside it in the
+  same version, so a project that did not export it failed after `nextflow run` had
+  started - on the literal `[:]` where a path was expected - instead of at launch. The
+  0.4.14 entry below describing that guard was therefore not true of 0.4.14 as released.
+- **INTEGRATION** - the example config in `docs/source/user_docs/rna_fusions_pipeline.md`
+  matches `assets/rna_fusions.config` again: it was missing `all_samples`, and still
+  showed the `analysis_log_api_url`, `sample_list_version` and `cohort_slug` params that
+  0.4.5 moved out of the config and into the environment read by the onComplete handler.
+
 
 ## [0.4.14] - 2026-09-15
 ### Changed

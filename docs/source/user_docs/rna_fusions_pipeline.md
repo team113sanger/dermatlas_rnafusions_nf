@@ -51,6 +51,7 @@ params {
     outdir   = "${ANALYSIS_DIR}/star-fusion"
     ctat_lib = "/lustre/scratch127/casm/projects/dermatlas/references/star_fusion/GRCh38_gencode_v37_CTAT_lib_Mar012021.plug-n-play/ctat_genome_lib_build_dir"
     study_id = "${STUDY}"
+    all_samples = "${COHORT_METADATA_FILE}"
     subcohorts = [
         "one_per_patient": [
             sample_list: "${RNA_SAMPLE_LIST_ONE_PER_PATIENT}"
@@ -60,11 +61,10 @@ params {
         ]
     ]
 
-    // Run reporting
-    analysis_log_api_url   = "${ANALYSIS_LOG_API_URL}"
-    sample_list_version    = "${SAMPLE_LIST_VERSION_FILE}"
-    cohort_slug            = "${COHORT_SLUG}"
-    analysis_pipeline_slug = "rnafusion_pipe"
+    // Run reporting takes no params: it is gated by the DERMATLAS_WEBSITE_LOGGING /
+    // DERMATLAS_SLACK_NOTIFICATIONS env vars exported by run_rna_fusions.sh, and the
+    // onComplete handler reads COHORT_SLUG, SAMPLE_LIST_VERSION_FILE,
+    // SELF_DESCRIBING_API and SLACK_WEBHOOK_URL straight from the environment.
 }
 
 ```
